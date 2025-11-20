@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, isSameMonth, getISODate, getWeekNumber } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar } from './Icons';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar, ChevronLeft } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DashboardProps {
@@ -13,6 +13,8 @@ interface DashboardProps {
 }
 
 type DetailView = 'none' | 'today' | 'week' | 'month';
+
+const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
@@ -30,6 +32,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [formDesc, setFormDesc] = useState('');
   const [formDate, setFormDate] = useState(getISODate(new Date()));
 
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
   const today = new Date();
 
   // Calculations
@@ -63,6 +66,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setIsEditingId(null);
     }
     setShowForm(true);
+  };
+
+  const handleQuickAction = (appName: string) => {
+    setFormDesc(appName);
+  };
+
+  const handleManualAction = () => {
+    setFormDesc('');
+    setTimeout(() => {
+      descriptionInputRef.current?.focus();
+    }, 100);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -167,22 +181,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="flex-1 overflow-y-auto p-4">
            {content}
         </div>
-        {!groupedByWeek && (
-          <div className="p-4 border-t border-slate-800 bg-slate-900 flex gap-3">
-             <button 
-               onClick={() => handleOpenForm('income')}
-               className="flex-1 bg-emerald-600 active:bg-emerald-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-             >
-               <Plus size={20} /> Ganho
-             </button>
-             <button 
-               onClick={() => handleOpenForm('expense')}
-               className="flex-1 bg-rose-600 active:bg-rose-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-             >
-               <TrendingDown size={20} /> Despesa
-             </button>
-          </div>
-        )}
       </div>
     );
   };
@@ -191,10 +189,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="flex flex-col gap-4 pb-24">
-      <header className="pt-8 pb-4 px-2">
+      <header className="pt-8 pb-2 px-2">
         <h1 className="text-2xl font-bold text-slate-100">Meu Corre 🏍️</h1>
-        <p className="text-slate-400 text-sm">Visão geral dos seus ganhos</p>
+        <p className="text-slate-400 text-sm">Controle suas entregas</p>
       </header>
+
+      {/* Main Action Buttons */}
+      <div className="grid grid-cols-2 gap-4 px-1 mb-2">
+        <button 
+          onClick={() => handleOpenForm('income')}
+          className="bg-emerald-600 active:bg-emerald-700 text-white py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-lg shadow-emerald-900/20 transition-transform active:scale-95"
+        >
+          <div className="p-2 bg-emerald-500/30 rounded-full mb-1">
+            <Plus size={24} />
+          </div>
+          Receita
+        </button>
+        <button 
+          onClick={() => handleOpenForm('expense')}
+          className="bg-rose-600 active:bg-rose-700 text-white py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-lg shadow-rose-900/20 transition-transform active:scale-95"
+        >
+          <div className="p-2 bg-rose-500/30 rounded-full mb-1">
+            <TrendingDown size={24} />
+          </div>
+          Despesa
+        </button>
+      </div>
 
       {/* Cards */}
       <Card 
@@ -231,11 +251,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Add/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-4">
+          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl animate-in slide-in-from-bottom duration-200 sm:zoom-in-95">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white">
-                {isEditingId ? 'Editar' : 'Adicionar'} {formType === 'income' ? 'Ganho' : 'Despesa'}
+                {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
               </h3>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white">
                 <X size={24} />
@@ -243,6 +263,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* Value Input */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">Valor</label>
                 <input 
@@ -252,23 +274,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   value={formAmount}
                   onChange={e => setFormAmount(e.target.value)}
                   placeholder="0,00"
-                  className="w-full bg-slate-950 border border-slate-800 text-white text-2xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-700"
-                  autoFocus
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-3xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-700 font-bold"
+                  autoFocus={!isEditingId}
                 />
               </div>
               
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">Descrição</label>
-                <input 
-                  type="text" 
-                  required
-                  value={formDesc}
-                  onChange={e => setFormDesc(e.target.value)}
-                  placeholder="Ex: Entrega iFood, Gasolina..."
-                  className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
+              {/* Date Input */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">Data</label>
                 <input 
@@ -280,9 +291,59 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 />
               </div>
 
+              {/* Quick Actions for Income */}
+              {formType === 'income' && (
+                <div className="py-2">
+                  <label className="block text-xs text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {DELIVERY_APPS.map(app => (
+                      <button
+                        key={app}
+                        type="button"
+                        onClick={() => handleQuickAction(app)}
+                        className={`py-2 px-1 rounded-lg text-sm font-semibold transition-colors border ${
+                          formDesc === app 
+                            ? 'bg-amber-500 text-slate-900 border-amber-500' 
+                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                        }`}
+                      >
+                        {app}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={handleManualAction}
+                      className={`py-2 px-1 rounded-lg text-sm font-semibold transition-colors border ${
+                         !DELIVERY_APPS.includes(formDesc) && formDesc !== ''
+                            ? 'bg-slate-700 text-white border-slate-600' 
+                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      Outro
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Description Input (Manual/Confirmation) */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">
+                  {formType === 'income' ? 'Descrição Manual' : 'Descrição'}
+                </label>
+                <input 
+                  ref={descriptionInputRef}
+                  type="text" 
+                  required
+                  value={formDesc}
+                  onChange={e => setFormDesc(e.target.value)}
+                  placeholder={formType === 'income' ? "Selecione acima ou digite..." : "Ex: Gasolina, Manutenção..."}
+                  className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
+                />
+              </div>
+
               <button 
                 type="submit"
-                className={`w-full py-4 rounded-xl font-bold text-lg mt-4 transition-transform active:scale-95 ${
+                className={`w-full py-4 rounded-xl font-bold text-lg mt-2 transition-transform active:scale-95 ${
                   formType === 'income' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
                 }`}
               >
