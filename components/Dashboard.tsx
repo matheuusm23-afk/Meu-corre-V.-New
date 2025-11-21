@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType } from '../types';
-import { formatCurrency, formatDate, isSameDay, isSameWeek, isSameMonth, getISODate, getWeekNumber } from '../utils';
+import { formatCurrency, formatDate, isSameDay, isSameWeek, isSameMonth, getISODate, getWeekNumber, getStartOfWeek } from '../utils';
 import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar, ChevronLeft } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -31,6 +31,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [formAmount, setFormAmount] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formDate, setFormDate] = useState(getISODate(new Date()));
+  
+  // Control visibility of manual description input
+  const [customInputVisible, setCustomInputVisible] = useState(false);
 
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const today = new Date();
@@ -51,6 +54,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [transactions]);
 
+  // Weekly Chart Data Calculation
+  const weeklyChartData = useMemo(() => {
+    const startOfWeek = getStartOfWeek(new Date());
+    const days = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(startOfWeek);
+      currentDay.setDate(startOfWeek.getDate() + i);
+      
+      const dayTransactions = transactions.filter(t => isSameDay(new Date(t.date), currentDay));
+      const income = dayTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+      const expense = dayTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      const balance = income - expense;
+
+      days.push({
+        date: currentDay,
+        dayName: new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(currentDay).slice(0, 3),
+        balance,
+        isToday: isSameDay(currentDay, today)
+      });
+    }
+    
+    const maxVal = Math.max(...days.map(d => Math.abs(d.balance)));
+    return { days, maxVal: maxVal === 0 ? 1 : maxVal }; // Prevent division by zero
+  }, [transactions]);
+
   const handleOpenForm = (type: TransactionType, transactionToEdit?: Transaction) => {
     if (transactionToEdit) {
       setFormType(transactionToEdit.type);
@@ -58,24 +87,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setFormDesc(transactionToEdit.description);
       setFormDate(transactionToEdit.date.split('T')[0]);
       setIsEditingId(transactionToEdit.id);
+      
+      // Determine if we should show the text input
+      if (transactionToEdit.type === 'expense') {
+        setCustomInputVisible(true);
+      } else {
+        // Income: Show input only if description is NOT one of the preset apps
+        setCustomInputVisible(!DELIVERY_APPS.includes(transactionToEdit.description));
+      }
     } else {
       setFormType(type);
       setFormAmount('');
       setFormDesc('');
       setFormDate(getISODate(new Date()));
       setIsEditingId(null);
+      
+      // Default: Hide input for Income (force button selection), Show for Expense
+      setCustomInputVisible(type === 'expense');
     }
     setShowForm(true);
   };
 
   const handleQuickAction = (appName: string) => {
     setFormDesc(appName);
+    setCustomInputVisible(false);
   };
 
   const handleManualAction = () => {
     setFormDesc('');
-    // Focus logic kept optional or removed based on preference, 
-    // but to prevent keyboard popup immediately on load, we don't focus 'amount' initially.
+    setCustomInputVisible(true);
+    // Focus logic
     setTimeout(() => {
       descriptionInputRef.current?.focus();
     }, 100);
@@ -218,6 +259,59 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </button>
       </div>
 
+      {/* Modern Weekly Chart - Floating Design */}
+      <div className="mt-4 mb-6 px-2">
+        <div className="flex justify-between items-end mb-2">
+          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
+        </div>
+        
+        <div className="flex justify-between items-end h-40 gap-2 sm:gap-3">
+          {weeklyChartData.days.map((day, index) => {
+            const percentage = Math.min(100, (Math.abs(day.balance) / weeklyChartData.maxVal) * 100);
+            const isPositive = day.balance >= 0;
+            const isZero = day.balance === 0;
+            
+            // Dynamic Styles based on value
+            const gradient = isZero 
+              ? 'bg-slate-800' 
+              : isPositive 
+                ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
+                : 'bg-gradient-to-t from-rose-600 to-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]';
+            
+            const textColor = isZero ? 'text-slate-600' : isPositive ? 'text-emerald-400' : 'text-rose-400';
+
+            return (
+              <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
+                
+                {/* Floating Value Label (Animated) */}
+                <div className={`
+                  absolute -top-6 text-[10px] font-bold transition-all duration-300 
+                  opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0
+                  ${textColor}
+                `}>
+                  {isZero ? '' : Math.round(day.balance)}
+                </div>
+                
+                {/* The Bar */}
+                <div 
+                  className={`
+                    w-full rounded-2xl transition-all duration-500 ease-out relative
+                    group-hover:scale-110 group-hover:brightness-110
+                    ${gradient}
+                  `}
+                  style={{ height: isZero ? '4px' : `${percentage}%` }}
+                ></div>
+
+                {/* Day Label */}
+                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-400 font-bold' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                  {day.dayName}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Cards */}
       <Card 
         title="Saldo do Dia" 
@@ -305,26 +399,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="py-1">
                   <label className="block text-xs text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {DELIVERY_APPS.map(app => (
-                      <button
-                        key={app}
-                        type="button"
-                        onClick={() => handleQuickAction(app)}
-                        className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
-                          formDesc === app 
-                            ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-lg shadow-amber-500/20' 
-                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
-                        }`}
-                      >
-                        {app}
-                      </button>
-                    ))}
+                    {DELIVERY_APPS.map(app => {
+                      const isActive = !customInputVisible && formDesc === app;
+                      return (
+                        <button
+                          key={app}
+                          type="button"
+                          onClick={() => handleQuickAction(app)}
+                          className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
+                            isActive
+                              ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-lg shadow-amber-500/20' 
+                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                          }`}
+                        >
+                          {app}
+                        </button>
+                      );
+                    })}
                     <button
                       type="button"
                       onClick={handleManualAction}
                       className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
-                         !DELIVERY_APPS.includes(formDesc) && formDesc !== ''
-                            ? 'bg-slate-700 text-white border-slate-600' 
+                         customInputVisible
+                            ? 'bg-slate-700 text-white border-slate-600 ring-2 ring-slate-600' 
                             : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
                       }`}
                     >
@@ -334,21 +431,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               )}
 
-              {/* Description Input (Manual/Confirmation) */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">
-                  {formType === 'income' ? 'Descrição' : 'Descrição'}
-                </label>
-                <input 
-                  ref={descriptionInputRef}
-                  type="text" 
-                  required
-                  value={formDesc}
-                  onChange={e => setFormDesc(e.target.value)}
-                  placeholder={formType === 'income' ? "Selecione ou digite..." : "Ex: Gasolina, Manutenção..."}
-                  className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
-                />
-              </div>
+              {/* Description Input (Manual/Confirmation) - Hidden by default for Income */}
+              {customInputVisible && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">
+                    Descrição
+                  </label>
+                  <input 
+                    ref={descriptionInputRef}
+                    type="text" 
+                    required={customInputVisible}
+                    value={formDesc}
+                    onChange={e => setFormDesc(e.target.value)}
+                    placeholder="Ex: Gasolina, Gorjeta..."
+                    className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
+                  />
+                </div>
+              )}
 
               <button 
                 type="submit"
