@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange } from '../utils';
@@ -32,6 +33,12 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
 
   const isFutureView = startDate > currentCycleEnd;
 
+  // Identify unique key for this cycle (Start Date)
+  const cycleKey = getISODate(startDate);
+  
+  // Retrieve goal for this specific cycle, default to 0 if not set
+  const cycleGoal = goalSettings.monthlyGoals?.[cycleKey] || 0;
+
   // Helper labels
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -64,9 +71,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       }, 0);
   }, [transactions, startDate, endDate]);
 
-  const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentPeriodBalance);
+  const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
   // Clamp progress between 0 and 100
-  const progressPercent = Math.max(0, Math.min(100, (currentPeriodBalance / (goalSettings.monthlyGoal || 1)) * 100));
+  const progressPercent = cycleGoal > 0 
+    ? Math.max(0, Math.min(100, (currentPeriodBalance / cycleGoal) * 100))
+    : 0;
 
   // 2. Generate Calendar Days for the Cycle
   const calendarDays = useMemo(() => {
@@ -118,7 +127,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       ? `Para bater a meta em ${workDaysCount} dias restantes` 
       : 'Meta finalizada ou dias esgotados';
   } else if (isFutureView) {
-    dailyTarget = workDaysCount > 0 ? goalSettings.monthlyGoal / workDaysCount : 0;
+    dailyTarget = workDaysCount > 0 ? cycleGoal / workDaysCount : 0;
     helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
   } else {
     dailyTarget = 0;
@@ -127,9 +136,15 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
 
   // Handlers
   const handleGoalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+    
     onUpdateSettings({
       ...goalSettings,
-      monthlyGoal: parseFloat(e.target.value) || 0,
+      // Update the map with the new value for this specific cycle key
+      monthlyGoals: {
+        ...(goalSettings.monthlyGoals || {}),
+        [cycleKey]: val
+      }
     });
   };
 
@@ -152,6 +167,9 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     const gridItems = [];
     
     const firstDayOfWeek = startDate.getDay(); // 0 = Sun
+    const gridCols = 7;
+
+    // Add empty cells for offset
     for (let i = 0; i < firstDayOfWeek; i++) {
        gridItems.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
     }
@@ -212,14 +230,16 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </button>
       </div>
 
-      <Card title={`Meta do Ciclo`} className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-800 text-white">
+      <Card title={`Meta do Mês`} className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-800 text-white">
         <div className="flex items-center gap-2 mt-2">
           <span className="text-2xl text-slate-400 font-bold">R$</span>
           <input 
             type="number" 
-            value={goalSettings.monthlyGoal} 
+            // If value is 0, show empty string to keep it "clean" per user request
+            value={cycleGoal === 0 ? '' : cycleGoal} 
             onChange={handleGoalChange}
-            className="bg-transparent text-3xl font-bold text-white w-full focus:outline-none border-b border-slate-600 focus:border-amber-500 pb-1"
+            placeholder="0,00"
+            className="bg-transparent text-3xl font-bold text-white w-full focus:outline-none border-b border-slate-600 focus:border-amber-500 pb-1 placeholder:text-slate-600"
           />
         </div>
       </Card>

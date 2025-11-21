@@ -272,7 +272,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Modern Weekly Chart - Floating Design */}
       <div className="mt-2 mb-6 px-2">
-        <div className="flex justify-between items-end mb-2">
+        <div className="flex justify-between items-end mb-8">
           <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
         </div>
         
@@ -296,7 +296,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 
                 {/* Floating Value Label (Visible Always) */}
                 <div className={`
-                  absolute -top-6 text-[10px] font-bold
+                  absolute -top-6 text-[10px] font-bold z-10
                   ${textColor}
                 `}>
                   {isZero ? '' : Math.round(day.balance)}
@@ -306,14 +306,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div 
                   className={`
                     w-full rounded-2xl transition-all duration-500 ease-out relative
-                    group-hover:scale-110 group-hover:brightness-110
                     ${gradient}
                   `}
                   style={{ height: isZero ? '4px' : `${percentage}%` }}
                 ></div>
 
                 {/* Day Label */}
-                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-500 font-bold' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
+                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-500 font-bold' : 'text-slate-400 dark:text-slate-500'}`}>
                   {day.dayName}
                 </div>
               </div>

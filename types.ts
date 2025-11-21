@@ -1,3 +1,4 @@
+
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
@@ -9,7 +10,8 @@ export interface Transaction {
 }
 
 export interface GoalSettings {
-  monthlyGoal: number;
+  monthlyGoal: number; // Deprecated, kept for migration
+  monthlyGoals?: Record<string, number>; // Key: ISO Date of Cycle Start (YYYY-MM-DD), Value: Goal Amount
   daysOff: string[]; // Array of ISO date strings (YYYY-MM-DD)
   startDayOfMonth: number; // 1-31
   endDayOfMonth?: number; // 1-31, or undefined for automatic (startDay - 1)

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Goals } from './components/Goals';
@@ -23,7 +24,8 @@ const App: React.FC = () => {
   // Global State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goalSettings, setGoalSettings] = useState<GoalSettings>({
-    monthlyGoal: 3000,
+    monthlyGoal: 3000, // Default fallback
+    monthlyGoals: {}, // Start empty for specific months
     daysOff: [],
     startDayOfMonth: 1,
   });
@@ -37,6 +39,7 @@ const App: React.FC = () => {
       const parsed = JSON.parse(savedGoals);
       setGoalSettings({
         ...parsed,
+        monthlyGoals: parsed.monthlyGoals || {}, // Ensure object exists
         startDayOfMonth: parsed.startDayOfMonth || 1
       });
     }
@@ -79,7 +82,7 @@ const App: React.FC = () => {
 
   const handleClearData = () => {
     setTransactions([]);
-    setGoalSettings({ monthlyGoal: 0, daysOff: [], startDayOfMonth: 1 });
+    setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1 });
     localStorage.clear();
   };
 
