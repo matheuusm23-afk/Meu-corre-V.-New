@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType } from '../types';
-import { formatCurrency, formatDate, isSameDay, isSameWeek, isSameMonth, getISODate, getWeekNumber, getStartOfWeek } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar, ChevronLeft } from './Icons';
+import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getWeekNumber, getStartOfWeek } from '../utils';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DashboardProps {
   transactions: Transaction[];
+  startDayOfMonth: number;
   onAddTransaction: (t: Transaction) => void;
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
@@ -18,6 +19,7 @@ const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
+  startDayOfMonth = 1,
   onAddTransaction, 
   onUpdateTransaction, 
   onDeleteTransaction 
@@ -53,9 +55,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return {
       today: calc(t => isSameDay(new Date(t.date), today)),
       week: calc(t => isSameWeek(new Date(t.date), today)),
-      month: calc(t => isSameMonth(new Date(t.date), today)),
+      // Use custom billing period logic for Month
+      month: calc(t => isDateInBillingPeriod(new Date(t.date), today, startDayOfMonth)),
     };
-  }, [transactions]);
+  }, [transactions, startDayOfMonth]);
 
   // Weekly Chart Data Calculation
   const weeklyChartData = useMemo(() => {
@@ -82,6 +85,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const maxVal = Math.max(...days.map(d => Math.abs(d.balance)));
     return { days, maxVal: maxVal === 0 ? 1 : maxVal }; // Prevent division by zero
   }, [transactions]);
+
+  // Get label for current billing period
+  const billingPeriodLabel = useMemo(() => {
+    const { startDate, endDate } = getBillingPeriodRange(today, startDayOfMonth);
+    const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+    return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
+  }, [startDayOfMonth]);
 
   const handleOpenForm = (type: TransactionType, transactionToEdit?: Transaction) => {
     setIsFabOpen(false); // Close FAB if open
@@ -316,7 +326,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <Card 
         title="Saldo do Mês" 
         value={formatCurrency(stats.month.balance)}
-        subtitle="Histórico mensal por semanas"
+        subtitle={`Ciclo: ${billingPeriodLabel}`}
         icon={<TrendingUp className="text-amber-400" />}
         onClick={() => setDetailView('month')}
         className="border-l-4 border-l-amber-500"
@@ -325,7 +335,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Detail Views (Modals) */}
       {detailView === 'today' && renderTransactionList('Movimentações de Hoje', stats.today.list, true)}
       {detailView === 'week' && renderTransactionList('Movimentações da Semana', stats.week.list, true)}
-      {detailView === 'month' && renderTransactionList('Histórico Mensal', stats.month.list, false, true)}
+      {detailView === 'month' && renderTransactionList(`Ciclo ${billingPeriodLabel}`, stats.month.list, false, true)}
 
       {/* FAB Backdrop */}
       {isFabOpen && (

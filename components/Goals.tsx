@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction } from '../types';
-import { formatCurrency, getDaysInMonth, getISODate, isSameMonth } from '../utils';
+import { formatCurrency, getISODate, getBillingPeriodRange } from '../utils';
 import { Card } from './ui/Card';
 import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight } from './Icons';
 
@@ -14,53 +14,101 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   const [viewDate, setViewDate] = useState(new Date());
   
   const today = new Date();
-  const isCurrentMonthView = isSameMonth(viewDate, today);
-  const isFutureView = viewDate > today && !isCurrentMonthView;
-  
-  const viewYear = viewDate.getFullYear();
-  const viewMonth = viewDate.getMonth();
-  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+  const startDay = goalSettings.startDayOfMonth || 1;
 
-  // Helper to change months
-  const changeMonth = (offset: number) => {
-    const newDate = new Date(viewYear, viewMonth + offset, 1);
+  // Determine the billing period for the current view
+  const { startDate, endDate } = useMemo(() => 
+    getBillingPeriodRange(viewDate, startDay), 
+  [viewDate, startDay]);
+
+  // Determine if we are viewing the current actual cycle
+  const { startDate: currentCycleStart, endDate: currentCycleEnd } = useMemo(() => 
+    getBillingPeriodRange(today, startDay), 
+  [today, startDay]);
+
+  const isCurrentCycleView = 
+    startDate.getTime() === currentCycleStart.getTime() && 
+    endDate.getTime() === currentCycleEnd.getTime();
+
+  const isFutureView = startDate > currentCycleEnd;
+
+  // Helper labels
+  const periodLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+    return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
+  }, [startDate, endDate]);
+
+  const mainMonthLabel = useMemo(() => {
+    // Usually the "Goal Month" is the one where the cycle ends, or the majority of days are.
+    // Let's use the End Date's month as the "Fiscal Month" name.
+    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(endDate);
+  }, [endDate]);
+
+  // Navigation
+  const changePeriod = (offset: number) => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(newDate.getMonth() + offset);
     setViewDate(newDate);
   };
 
-  const viewMonthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(viewDate);
-
-  // 1. Calculate Progress (Only relevant for Current Month)
-  const currentMonthIncome = useMemo(() => {
-    if (!isCurrentMonthView) return 0;
+  // 1. Calculate Progress (Only relevant for Current Cycle)
+  const currentPeriodIncome = useMemo(() => {
+    if (!isCurrentCycleView) return 0;
+    
     return transactions
-      .filter(t => t.type === 'income' && isSameMonth(new Date(t.date), today))
+      .filter(t => {
+        const tDate = new Date(t.date);
+        return t.type === 'income' && tDate >= startDate && tDate <= endDate;
+      })
       .reduce((acc, t) => acc + t.amount, 0);
-  }, [transactions, isCurrentMonthView, today]);
+  }, [transactions, isCurrentCycleView, startDate, endDate]);
 
-  const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentMonthIncome);
-  const progressPercent = Math.min(100, (currentMonthIncome / (goalSettings.monthlyGoal || 1)) * 100);
+  const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentPeriodIncome);
+  const progressPercent = Math.min(100, (currentPeriodIncome / (goalSettings.monthlyGoal || 1)) * 100);
 
-  // 2. Calculate Work Days Logic
+  // 2. Generate Calendar Days for the Cycle
+  const calendarDays = useMemo(() => {
+    const days: Date[] = [];
+    const curr = new Date(startDate);
+    while (curr <= endDate) {
+      days.push(new Date(curr));
+      curr.setDate(curr.getDate() + 1);
+    }
+    return days;
+  }, [startDate, endDate]);
+
+  // 3. Calculate Work Days Logic within the Cycle
   const calculateWorkDays = () => {
     let workDays = 0;
-    const startDay = isCurrentMonthView ? today.getDate() : 1;
+    // For current cycle, start counting from today (remaining days)
+    // For future/past, count all days in cycle
     
-    for (let day = startDay; day <= daysInMonth; day++) {
-      const dateStr = getISODate(new Date(viewYear, viewMonth, day));
-      if (!goalSettings.daysOff.includes(dateStr)) {
-        workDays++;
+    calendarDays.forEach(date => {
+      const dateStr = getISODate(date);
+      const isOff = goalSettings.daysOff.includes(dateStr);
+      
+      if (!isOff) {
+        if (isCurrentCycleView) {
+            // Only count if date is today or future
+            // Normalize to start of day for comparison
+            const dTime = new Date(date).setHours(0,0,0,0);
+            const tTime = new Date(today).setHours(0,0,0,0);
+            if (dTime >= tTime) workDays++;
+        } else {
+            workDays++;
+        }
       }
-    }
+    });
     return workDays;
   };
 
   const workDaysCount = calculateWorkDays();
 
-  // 3. Calculate Daily Target
+  // 4. Calculate Daily Target
   let dailyTarget = 0;
   let helperText = '';
 
-  if (isCurrentMonthView) {
+  if (isCurrentCycleView) {
     dailyTarget = workDaysCount > 0 ? remainingAmount / workDaysCount : 0;
     helperText = `Para bater a meta em ${workDaysCount} dias restantes`;
   } else if (isFutureView) {
@@ -68,7 +116,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
   } else {
     dailyTarget = 0;
-    helperText = 'Mês encerrado';
+    helperText = 'Ciclo encerrado';
   }
 
   // Handlers
@@ -79,55 +127,67 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     });
   };
 
-  const handleDayClick = (day: number) => {
-    const dateStr = getISODate(new Date(viewYear, viewMonth, day));
-    const isOff = goalSettings.daysOff.includes(dateStr);
+  const handleDayClick = (date: Date) => {
+    const dateStr = getISODate(date);
+    // Prevent editing past days in current cycle
+    if (isCurrentCycleView && date < new Date(new Date().setHours(0,0,0,0))) return;
 
+    const isOff = goalSettings.daysOff.includes(dateStr);
     let newDaysOff;
     if (isOff) {
-      // If it's already off, remove it
       newDaysOff = goalSettings.daysOff.filter(d => d !== dateStr);
     } else {
-      // Add it
       newDaysOff = [...goalSettings.daysOff, dateStr];
     }
     onUpdateSettings({ ...goalSettings, daysOff: newDaysOff });
   };
 
-  // Calendar Grid Generation
-  const renderCalendar = () => {
-    const days = [];
-    const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+  // Render Grid
+  const renderCalendarGrid = () => {
+    const gridItems = [];
     
+    // Empty cells for start offset
+    const firstDayOfWeek = startDate.getDay(); // 0 = Sun
     for (let i = 0; i < firstDayOfWeek; i++) {
-       days.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
+       gridItems.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
     }
 
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(viewYear, viewMonth, i);
+    calendarDays.forEach((date) => {
       const dateStr = getISODate(date);
+      const dayNum = date.getDate();
+      const isFirstOfMonth = dayNum === 1;
       const isOff = goalSettings.daysOff.includes(dateStr);
-      const isPastDay = isCurrentMonthView && i < today.getDate();
-      const isToday = isCurrentMonthView && i === today.getDate();
       
-      days.push(
+      // Date comparison for visuals
+      const isToday = date.toDateString() === today.toDateString();
+      const isPast = date < new Date(new Date().setHours(0,0,0,0));
+      
+      gridItems.push(
         <div 
-          key={i}
-          onClick={() => !isPastDay && handleDayClick(i)}
+          key={dateStr}
+          onClick={() => (!isCurrentCycleView || !isPast) && handleDayClick(date)}
           className={`
-            relative h-10 w-10 rounded-lg flex items-center justify-center text-sm font-bold cursor-pointer transition-all
-            ${isPastDay ? 'opacity-30 cursor-not-allowed bg-slate-800 text-slate-500' : ''}
+            relative h-10 w-10 rounded-lg flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all border border-transparent
+            ${isPast ? 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500' : ''}
             ${isToday ? 'ring-2 ring-amber-500 z-10' : ''}
-            ${!isPastDay && isOff ? 'bg-rose-900/50 text-rose-400 border border-rose-800' : ''}
-            ${!isPastDay && !isOff ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : ''}
+            ${!isPast && isOff ? 'bg-rose-900/50 text-rose-400 border-rose-800/50' : ''}
+            ${!isPast && !isOff ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : ''}
           `}
         >
-          {i}
-          {isOff && !isPastDay && <div className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full"></div>}
+          {/* Small Month Label on 1st of month */}
+          {isFirstOfMonth && (
+             <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] uppercase bg-slate-950 text-slate-400 px-1 rounded">
+               {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
+             </span>
+          )}
+          
+          <span>{dayNum}</span>
+          
+          {isOff && !isPast && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full"></div>}
         </div>
       );
-    }
-    return days;
+    });
+    return gridItems;
   };
 
   return (
@@ -137,23 +197,22 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         <p className="text-slate-400 text-sm">Defina quanto quer ganhar</p>
       </header>
 
-      {/* Month Navigator */}
+      {/* Cycle Navigator */}
       <div className="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
-        <button onClick={() => changeMonth(-1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
+        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
           <ChevronLeft size={24} />
         </button>
         <div className="text-center">
-          <div className="text-lg font-bold capitalize text-slate-100">{viewMonthLabel}</div>
-          {isCurrentMonthView && <div className="text-[10px] uppercase tracking-wider text-emerald-500 font-bold">Mês Atual</div>}
-          {isFutureView && <div className="text-[10px] uppercase tracking-wider text-amber-500 font-bold">Previsão Futura</div>}
+          <div className="text-lg font-bold capitalize text-slate-100">{mainMonthLabel}</div>
+          <div className="text-xs text-slate-500 font-medium">{periodLabel}</div>
         </div>
-        <button onClick={() => changeMonth(1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
+        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
           <ChevronRight size={24} />
         </button>
       </div>
 
       {/* Goal Input */}
-      <Card title={`Meta de ${viewMonthLabel}`} className="bg-gradient-to-br from-slate-900 to-slate-800">
+      <Card title={`Meta do Ciclo`} className="bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="flex items-center gap-2 mt-2">
           <span className="text-2xl text-slate-400 font-bold">R$</span>
           <input 
@@ -165,15 +224,18 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </div>
       </Card>
 
-      {/* Conditional Progress View - Only for Current Month */}
-      {isCurrentMonthView && (
+      {/* Conditional Progress View - Only for Current Cycle */}
+      {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-4">
           <Card title="Já Feito" className="bg-slate-900">
             <div className="text-emerald-400 text-xl font-bold mt-1">
-              {formatCurrency(currentMonthIncome)}
+              {formatCurrency(currentPeriodIncome)}
             </div>
             <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
               <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2">
+              {Math.round(progressPercent)}% da meta
             </div>
           </Card>
           <Card title="Falta" className="bg-slate-900">
@@ -202,7 +264,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       </Card>
 
       {/* Calendar Day Off Planner */}
-      <Card title="Planejamento de Folgas" subtitle={`Toque nos dias de ${viewMonthLabel} que não vai trabalhar`} icon={<CalIcon className="text-slate-400"/>}>
+      <Card 
+        title="Planejamento de Folgas" 
+        subtitle={`Ciclo: ${periodLabel}`} 
+        icon={<CalIcon className="text-slate-400"/>}
+      >
         <div className="mt-4">
           {/* Days of Week Header */}
           <div className="grid grid-cols-7 gap-1 mb-2 text-center">
@@ -212,7 +278,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
           </div>
           
           <div className="flex flex-wrap gap-1 sm:gap-2 justify-start">
-             {renderCalendar()}
+             {renderCalendarGrid()}
           </div>
           
           <div className="mt-4 flex gap-4 text-xs text-slate-400 justify-center">

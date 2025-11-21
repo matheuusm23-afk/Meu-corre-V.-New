@@ -11,6 +11,7 @@ export interface Transaction {
 export interface GoalSettings {
   monthlyGoal: number;
   daysOff: string[]; // Array of ISO date strings (YYYY-MM-DD)
+  startDayOfMonth: number; // 1-31
 }
 
 export type ViewMode = 'home' | 'goals' | 'settings';

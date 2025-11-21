@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [goalSettings, setGoalSettings] = useState<GoalSettings>({
     monthlyGoal: 3000,
     daysOff: [],
+    startDayOfMonth: 1,
   });
 
   // Persistence
@@ -20,7 +21,14 @@ const App: React.FC = () => {
     const savedTx = localStorage.getItem('transactions');
     const savedGoals = localStorage.getItem('goalSettings');
     if (savedTx) setTransactions(JSON.parse(savedTx));
-    if (savedGoals) setGoalSettings(JSON.parse(savedGoals));
+    if (savedGoals) {
+      const parsed = JSON.parse(savedGoals);
+      // Ensure backwards compatibility if new fields are missing
+      setGoalSettings({
+        ...parsed,
+        startDayOfMonth: parsed.startDayOfMonth || 1
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -48,7 +56,7 @@ const App: React.FC = () => {
 
   const handleClearData = () => {
     setTransactions([]);
-    setGoalSettings({ monthlyGoal: 0, daysOff: [] });
+    setGoalSettings({ monthlyGoal: 0, daysOff: [], startDayOfMonth: 1 });
     localStorage.clear();
   };
 
@@ -58,6 +66,7 @@ const App: React.FC = () => {
         {currentView === 'home' && (
           <Dashboard 
             transactions={transactions}
+            startDayOfMonth={goalSettings.startDayOfMonth}
             onAddTransaction={handleAddTransaction}
             onUpdateTransaction={handleUpdateTransaction}
             onDeleteTransaction={handleDeleteTransaction}
@@ -71,7 +80,11 @@ const App: React.FC = () => {
           />
         )}
         {currentView === 'settings' && (
-          <Settings onClearData={handleClearData} />
+          <Settings 
+            onClearData={handleClearData} 
+            goalSettings={goalSettings}
+            onUpdateSettings={setGoalSettings}
+          />
         )}
       </main>
       
