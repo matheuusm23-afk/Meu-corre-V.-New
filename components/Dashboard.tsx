@@ -25,6 +25,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [detailView, setDetailView] = useState<DetailView>('none');
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
   
+  // FAB State
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  
   // Modal State for Add/Edit
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<TransactionType>('income');
@@ -81,6 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [transactions]);
 
   const handleOpenForm = (type: TransactionType, transactionToEdit?: Transaction) => {
+    setIsFabOpen(false); // Close FAB if open
     if (transactionToEdit) {
       setFormType(transactionToEdit.type);
       setFormAmount(transactionToEdit.amount.toString());
@@ -214,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     return (
-      <div className="fixed inset-0 bg-slate-950 z-40 flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
         <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900">
           <h2 className="text-lg font-bold">{title}</h2>
           <button onClick={() => setDetailView('none')} className="p-2 bg-slate-800 rounded-full text-slate-300">
@@ -231,36 +235,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // --- Main Render ---
 
   return (
-    <div className="flex flex-col gap-4 pb-24">
+    <div className="flex flex-col gap-4 pb-24 relative">
       <header className="pt-8 pb-2 px-2">
         <h1 className="text-2xl font-bold text-slate-100">Meu Corre 🏍️</h1>
         <p className="text-slate-400 text-sm">Controle suas entregas</p>
       </header>
 
-      {/* Main Action Buttons */}
-      <div className="grid grid-cols-2 gap-4 px-1 mb-2">
-        <button 
-          onClick={() => handleOpenForm('income')}
-          className="bg-emerald-600 active:bg-emerald-700 text-white py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-lg shadow-emerald-900/20 transition-transform active:scale-95"
-        >
-          <div className="p-2 bg-emerald-500/30 rounded-full mb-1">
-            <Plus size={24} />
-          </div>
-          Receita
-        </button>
-        <button 
-          onClick={() => handleOpenForm('expense')}
-          className="bg-rose-600 active:bg-rose-700 text-white py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-lg shadow-rose-900/20 transition-transform active:scale-95"
-        >
-          <div className="p-2 bg-rose-500/30 rounded-full mb-1">
-            <TrendingDown size={24} />
-          </div>
-          Despesa
-        </button>
-      </div>
-
       {/* Modern Weekly Chart - Floating Design */}
-      <div className="mt-4 mb-6 px-2">
+      <div className="mt-2 mb-6 px-2">
         <div className="flex justify-between items-end mb-2">
           <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
         </div>
@@ -344,6 +326,53 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {detailView === 'today' && renderTransactionList('Movimentações de Hoje', stats.today.list, true)}
       {detailView === 'week' && renderTransactionList('Movimentações da Semana', stats.week.list, true)}
       {detailView === 'month' && renderTransactionList('Histórico Mensal', stats.month.list, false, true)}
+
+      {/* FAB Backdrop */}
+      {isFabOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+          onClick={() => setIsFabOpen(false)}
+        />
+      )}
+
+      {/* Floating Action Button Group */}
+      <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-3">
+        {/* Expense Action */}
+        <div className={`flex items-center gap-2 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+          <span className="bg-slate-900 text-slate-200 text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
+            Nova Despesa
+          </span>
+          <button 
+            onClick={() => handleOpenForm('expense')}
+            className="w-12 h-12 bg-rose-600 rounded-full shadow-lg shadow-rose-900/50 flex items-center justify-center text-white hover:bg-rose-500 active:scale-95"
+          >
+            <TrendingDown size={20} />
+          </button>
+        </div>
+
+        {/* Income Action */}
+        <div className={`flex items-center gap-2 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+          <span className="bg-slate-900 text-slate-200 text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
+            Nova Receita
+          </span>
+          <button 
+            onClick={() => handleOpenForm('income')}
+            className="w-12 h-12 bg-emerald-600 rounded-full shadow-lg shadow-emerald-900/50 flex items-center justify-center text-white hover:bg-emerald-500 active:scale-95"
+          >
+            <TrendingUp size={20} />
+          </button>
+        </div>
+
+        {/* Main Toggle Button */}
+        <button 
+          onClick={() => setIsFabOpen(!isFabOpen)}
+          className={`w-14 h-14 rounded-full shadow-2xl shadow-amber-900/50 flex items-center justify-center text-white transition-all duration-300 active:scale-90 ${
+            isFabOpen ? 'bg-slate-700 rotate-45' : 'bg-amber-500 hover:bg-amber-400'
+          }`}
+        >
+          <Plus size={28} strokeWidth={2.5} />
+        </button>
+      </div>
 
       {/* Add/Edit Form Modal - Centered & Adjusted */}
       {showForm && (
