@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType } from '../types';
-import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getWeekNumber, getStartOfWeek } from '../utils';
+import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getStartOfWeek, getCycleStartDate } from '../utils';
 import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -172,30 +173,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
     let content;
 
     if (groupedByWeek) {
-      // Group logic for Month view
+      // Group by Start of Week Date (Monday)
       const weeks: Record<string, Transaction[]> = {};
+      
       sortedList.forEach(t => {
-        const weekNum = getWeekNumber(new Date(t.date));
-        const key = `Semana ${weekNum}`;
+        const date = new Date(t.date);
+        const startOfWeek = getStartOfWeek(date);
+        // Use ISO string as key for reliable sorting and grouping
+        const key = getISODate(startOfWeek); 
         if (!weeks[key]) weeks[key] = [];
         weeks[key].push(t);
       });
 
-      const currentWeekNum = getWeekNumber(today);
+      // Sort keys (weeks) descending (newest first)
+      const sortedKeys = Object.keys(weeks).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      
+      const currentWeekStart = getStartOfWeek(today);
+      const currentWeekKey = getISODate(currentWeekStart);
 
-      content = Object.entries(weeks).map(([weekName, weekTransactions]) => {
-        const weekNum = parseInt(weekName.replace('Semana ', ''));
-        const isCurrentWeek = weekNum === currentWeekNum;
+      content = sortedKeys.map((weekStartStr) => {
+        const transactions = weeks[weekStartStr];
+        const isCurrentWeek = weekStartStr === currentWeekKey;
+        
+        // Create display label: "DD/MM until DD/MM"
+        const start = new Date(weekStartStr + 'T12:00:00'); // Add time to ensure correct local date
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        
+        const label = `${formatDate(start)} até ${formatDate(end)}`;
+
         // Prompt restriction: Can only edit PAST weeks in month view. Current week edited in Week view.
         const canEditThisGroup = !isCurrentWeek; 
 
         return (
-          <div key={weekName} className="mb-6">
-            <h3 className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold mb-3 sticky top-0 bg-white dark:bg-slate-950 py-2">
-              {weekName} {isCurrentWeek && <span className="text-amber-500">(Atual)</span>}
+          <div key={weekStartStr} className="mb-6">
+            <h3 className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold mb-3 sticky top-0 bg-white dark:bg-slate-950 py-2 flex justify-between items-center">
+              <span>{label}</span>
+              {isCurrentWeek && <span className="text-amber-500 font-extrabold text-[10px] bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">ATUAL</span>}
             </h3>
             <div className="space-y-3">
-              {weekTransactions.map(t => (
+              {transactions.map(t => (
                 <TransactionItem 
                   key={t.id} 
                   t={t} 

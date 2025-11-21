@@ -6,11 +6,12 @@ export const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export const formatDate = (dateStr: string) => {
+export const formatDate = (dateStr: string | Date) => {
+  const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
-  }).format(new Date(dateStr));
+  }).format(d);
 };
 
 export const formatDateFull = (dateStr: string) => {
@@ -40,7 +41,9 @@ export const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay(); // 0 (Sun) to 6 (Sat)
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when week starts (Monday)
-  return new Date(d.setDate(diff));
+  const newDate = new Date(d.setDate(diff));
+  newDate.setHours(0, 0, 0, 0);
+  return newDate;
 };
 
 export const getWeekNumber = (date: Date) => {
@@ -50,9 +53,9 @@ export const getWeekNumber = (date: Date) => {
 };
 
 export const isSameWeek = (d1: Date, d2: Date) => {
-    // Simple check: same year and same week number
-    if (d1.getFullYear() !== d2.getFullYear()) return false;
-    return getWeekNumber(d1) === getWeekNumber(d2);
+    const start1 = getStartOfWeek(d1);
+    const start2 = getStartOfWeek(d2);
+    return start1.getTime() === start2.getTime();
 };
 
 export const isSameMonth = (d1: Date, d2: Date) => {
@@ -112,7 +115,6 @@ export const getBillingPeriodRange = (referenceDate: Date, startDay: number, exp
 
   // MANUAL MODE (Linked Logic)
   // Rule: If Closing Day is X, Start Day is ALWAYS X + 1.
-  // This ensures perfect continuity: e.g. Close 10th -> Start 11th.
   
   const closingDay = explicitEndDay;
   const derivedStartDay = closingDay + 1;
@@ -126,15 +128,11 @@ export const getBillingPeriodRange = (referenceDate: Date, startDay: number, exp
   if (referenceDate.getTime() > closingDateThisMonth.setHours(23, 59, 59, 999)) {
     // We are PAST the closing date of this month.
     // Cycle is: Start [Day+1] of This Month -> End [Day] of Next Month.
-    // e.g. Today Nov 20. Closing Nov 10. 
-    // Cycle: Nov 11 -> Dec 10.
     startDate = getCycleStartDate(year, month, derivedStartDay);
     endDate = getCycleStartDate(year, month + 1, closingDay);
   } else {
     // We are BEFORE or ON the closing date of this month.
     // Cycle is: Start [Day+1] of Last Month -> End [Day] of This Month.
-    // e.g. Today Nov 5. Closing Nov 10.
-    // Cycle: Oct 11 -> Nov 10.
     startDate = getCycleStartDate(year, month - 1, derivedStartDay);
     endDate = getCycleStartDate(year, month, closingDay);
   }
