@@ -5,9 +5,21 @@ import { Settings } from './components/Settings';
 import { BottomNav } from './components/ui/BottomNav';
 import { Transaction, GoalSettings, ViewMode } from './types';
 
+type Theme = 'light' | 'dark';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewMode>('home');
   
+  // Theme State
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme') as Theme;
+      if (savedTheme) return savedTheme;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'dark';
+  });
+
   // Global State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goalSettings, setGoalSettings] = useState<GoalSettings>({
@@ -23,7 +35,6 @@ const App: React.FC = () => {
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedGoals) {
       const parsed = JSON.parse(savedGoals);
-      // Ensure backwards compatibility if new fields are missing
       setGoalSettings({
         ...parsed,
         startDayOfMonth: parsed.startDayOfMonth || 1
@@ -38,6 +49,18 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('goalSettings', JSON.stringify(goalSettings));
   }, [goalSettings]);
+
+  // Theme Effect
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   // Actions
   const handleAddTransaction = (t: Transaction) => {
@@ -61,7 +84,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-amber-500/30">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-amber-500/30 transition-colors duration-300">
       <main className="max-w-lg mx-auto min-h-screen px-4">
         {currentView === 'home' && (
           <Dashboard 
@@ -84,6 +107,8 @@ const App: React.FC = () => {
             onClearData={handleClearData} 
             goalSettings={goalSettings}
             onUpdateSettings={setGoalSettings}
+            currentTheme={theme}
+            onToggleTheme={toggleTheme}
           />
         )}
       </main>

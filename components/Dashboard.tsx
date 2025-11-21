@@ -189,7 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         return (
           <div key={weekName} className="mb-6">
-            <h3 className="text-slate-400 text-xs uppercase font-bold mb-3 sticky top-0 bg-slate-950 py-2">
+            <h3 className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold mb-3 sticky top-0 bg-white dark:bg-slate-950 py-2">
               {weekName} {isCurrentWeek && <span className="text-amber-500">(Atual)</span>}
             </h3>
             <div className="space-y-3">
@@ -228,10 +228,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     return (
-      <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900">
-          <h2 className="text-lg font-bold">{title}</h2>
-          <button onClick={() => setDetailView('none')} className="p-2 bg-slate-800 rounded-full text-slate-300">
+      <div className="fixed inset-0 bg-white dark:bg-slate-950 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+          <button onClick={() => setDetailView('none')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-300">
             <X size={20} />
           </button>
         </div>
@@ -247,14 +247,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex flex-col gap-4 pb-24 relative">
       <header className="pt-8 pb-2 px-2">
-        <h1 className="text-2xl font-bold text-slate-100">Meu Corre 🏍️</h1>
-        <p className="text-slate-400 text-sm">Controle suas entregas</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Meu Corre 🏍️</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Controle suas entregas</p>
       </header>
 
       {/* Modern Weekly Chart - Floating Design */}
       <div className="mt-2 mb-6 px-2">
         <div className="flex justify-between items-end mb-2">
-          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
+          <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
         </div>
         
         <div className="flex justify-between items-end h-40 gap-2 sm:gap-3">
@@ -265,12 +265,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             
             // Dynamic Styles based on value
             const gradient = isZero 
-              ? 'bg-slate-800' 
+              ? 'bg-slate-200 dark:bg-slate-800' 
               : isPositive 
                 ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
                 : 'bg-gradient-to-t from-rose-600 to-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]';
             
-            const textColor = isZero ? 'text-slate-600' : isPositive ? 'text-emerald-400' : 'text-rose-400';
+            const textColor = isZero ? 'text-slate-400 dark:text-slate-600' : isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 
             return (
               <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
@@ -295,7 +295,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 ></div>
 
                 {/* Day Label */}
-                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-400 font-bold' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-500 font-bold' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
                   {day.dayName}
                 </div>
               </div>
@@ -309,27 +309,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
         title="Saldo do Dia" 
         value={formatCurrency(stats.today.balance)} 
         subtitle={`${stats.today.list.length} transações hoje`}
-        icon={<Wallet className="text-emerald-400" />}
+        icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
         onClick={() => setDetailView('today')}
-        className="border-l-4 border-l-emerald-500"
+        className="border-l-4 border-l-emerald-500 dark:border-l-emerald-500"
       />
 
       <Card 
         title="Saldo da Semana" 
         value={formatCurrency(stats.week.balance)}
         subtitle="Toque para ver detalhes semanais"
-        icon={<Calendar className="text-blue-400" />}
+        icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
         onClick={() => setDetailView('week')}
-        className="border-l-4 border-l-blue-500"
+        className="border-l-4 border-l-blue-500 dark:border-l-blue-500"
       />
 
       <Card 
         title="Saldo do Mês" 
         value={formatCurrency(stats.month.balance)}
         subtitle={`Ciclo: ${billingPeriodLabel}`}
-        icon={<TrendingUp className="text-amber-400" />}
+        icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
         onClick={() => setDetailView('month')}
-        className="border-l-4 border-l-amber-500"
+        className="border-l-4 border-l-amber-500 dark:border-l-amber-500"
       />
 
       {/* Detail Views (Modals) */}
@@ -349,7 +349,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-3">
         {/* Expense Action */}
         <div className={`flex items-center gap-2 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          <span className="bg-slate-900 text-slate-200 text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
+          <span className="bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
             Nova Despesa
           </span>
           <button 
@@ -362,7 +362,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Income Action */}
         <div className={`flex items-center gap-2 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          <span className="bg-slate-900 text-slate-200 text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
+          <span className="bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
             Nova Receita
           </span>
           <button 
@@ -394,12 +394,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           />
           
           {/* Modal Content - Centered */}
-          <div className="relative bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-800 p-6 shadow-2xl animate-in zoom-in-95 duration-200 z-10 overflow-hidden">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl animate-in zoom-in-95 duration-200 z-10 overflow-hidden">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
               </h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white p-2">
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white p-2">
                 <X size={24} />
               </button>
             </div>
@@ -408,7 +408,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               
               {/* Value Input */}
               <div>
-                <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">Valor</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">Valor</label>
                 <input 
                   type="number" 
                   step="0.01" 
@@ -416,27 +416,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   value={formAmount}
                   onChange={e => setFormAmount(e.target.value)}
                   placeholder="0,00"
-                  className="w-full bg-slate-950 border border-slate-800 text-white text-3xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-700 font-bold"
+                  className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-3xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-700 font-bold transition-colors"
                   inputMode="decimal"
                 />
               </div>
               
               {/* Date Input */}
               <div>
-                <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">Data</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">Data</label>
                 <input 
                   type="date" 
                   required
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none appearance-none"
+                  className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none appearance-none transition-colors"
                 />
               </div>
 
               {/* Quick Actions for Income */}
               {formType === 'income' && (
                 <div className="py-1">
-                  <label className="block text-xs text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
                   <div className="grid grid-cols-3 gap-2">
                     {DELIVERY_APPS.map(app => {
                       const isActive = !customInputVisible && formDesc === app;
@@ -447,8 +447,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           onClick={() => handleQuickAction(app)}
                           className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
                             isActive
-                              ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-lg shadow-amber-500/20' 
-                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20' 
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
                           }`}
                         >
                           {app}
@@ -461,7 +461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
                          customInputVisible
                             ? 'bg-slate-700 text-white border-slate-600 ring-2 ring-slate-600' 
-                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
                       }`}
                     >
                       Outro
@@ -473,7 +473,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {/* Description Input (Manual/Confirmation) - Hidden by default for Income */}
               {customInputVisible && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">
                     Descrição
                   </label>
                   <input 
@@ -483,7 +483,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     value={formDesc}
                     onChange={e => setFormDesc(e.target.value)}
                     placeholder="Ex: Gasolina, Gorjeta..."
-                    className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
+                    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
                   />
                 </div>
               )}
@@ -514,24 +514,24 @@ interface TransactionItemProps {
 }
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ t, canEdit, onEdit, onDelete }) => (
-  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center shadow-sm">
     <div className="flex gap-3 items-center">
-      <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+      <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-500'}`}>
         {t.type === 'income' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
       </div>
       <div>
-        <div className="font-semibold text-slate-200">{t.description}</div>
+        <div className="font-semibold text-slate-900 dark:text-slate-200">{t.description}</div>
         <div className="text-xs text-slate-500">{formatDate(t.date)}</div>
       </div>
     </div>
     <div className="text-right">
-      <div className={`font-bold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <div className={`font-bold ${t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
         {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
       </div>
       {canEdit && (
         <div className="flex gap-2 justify-end mt-1">
-          <button onClick={onEdit} className="text-slate-600 hover:text-amber-500 p-1"><Edit2 size={14} /></button>
-          <button onClick={onDelete} className="text-slate-600 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+          <button onClick={onEdit} className="text-slate-400 hover:text-amber-500 p-1"><Edit2 size={14} /></button>
+          <button onClick={onDelete} className="text-slate-400 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
         </div>
       )}
     </div>

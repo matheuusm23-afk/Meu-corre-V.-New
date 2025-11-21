@@ -15,7 +15,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onChangeView 
   ] as const;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pb-safe-area safe-area-bottom z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 pb-safe-area safe-area-bottom z-50 transition-colors duration-300">
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const isActive = currentView === item.id;
@@ -25,7 +25,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onChangeView 
               key={item.id}
               onClick={() => onChangeView(item.id)}
               className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-                isActive ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'
+                isActive ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />

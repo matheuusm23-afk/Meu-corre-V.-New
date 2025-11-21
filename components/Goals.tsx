@@ -168,15 +168,15 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
           onClick={() => (!isCurrentCycleView || !isPast) && handleDayClick(date)}
           className={`
             relative h-10 w-10 rounded-lg flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all border border-transparent
-            ${isPast ? 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500' : ''}
+            ${isPast ? 'opacity-40 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500' : ''}
             ${isToday ? 'ring-2 ring-amber-500 z-10' : ''}
-            ${!isPast && isOff ? 'bg-rose-900/50 text-rose-400 border-rose-800/50' : ''}
-            ${!isPast && !isOff ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : ''}
+            ${!isPast && isOff ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/50' : ''}
+            ${!isPast && !isOff ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700' : ''}
           `}
         >
           {/* Small Month Label on 1st of month */}
           {isFirstOfMonth && (
-             <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] uppercase bg-slate-950 text-slate-400 px-1 rounded">
+             <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] uppercase bg-white dark:bg-slate-950 text-slate-400 px-1 rounded shadow-sm">
                {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
              </span>
           )}
@@ -193,26 +193,26 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   return (
     <div className="flex flex-col gap-6 pb-24 pt-8 px-2">
        <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-100">Metas & Planejamento 🎯</h1>
-        <p className="text-slate-400 text-sm">Defina quanto quer ganhar</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas & Planejamento 🎯</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Defina quanto quer ganhar</p>
       </header>
 
       {/* Cycle Navigator */}
-      <div className="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
-        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-lg">
           <ChevronLeft size={24} />
         </button>
         <div className="text-center">
-          <div className="text-lg font-bold capitalize text-slate-100">{mainMonthLabel}</div>
+          <div className="text-lg font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
           <div className="text-xs text-slate-500 font-medium">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-white active:bg-slate-800 rounded-lg">
+        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-lg">
           <ChevronRight size={24} />
         </button>
       </div>
 
       {/* Goal Input */}
-      <Card title={`Meta do Ciclo`} className="bg-gradient-to-br from-slate-900 to-slate-800">
+      <Card title={`Meta do Ciclo`} className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-800 text-white">
         <div className="flex items-center gap-2 mt-2">
           <span className="text-2xl text-slate-400 font-bold">R$</span>
           <input 
@@ -227,19 +227,19 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       {/* Conditional Progress View - Only for Current Cycle */}
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-4">
-          <Card title="Já Feito" className="bg-slate-900">
-            <div className="text-emerald-400 text-xl font-bold mt-1">
+          <Card title="Já Feito" className="bg-white dark:bg-slate-900">
+            <div className="text-emerald-600 dark:text-emerald-400 text-xl font-bold mt-1">
               {formatCurrency(currentPeriodIncome)}
             </div>
-            <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
               <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
             </div>
             <div className="text-[10px] text-slate-500 mt-2">
               {Math.round(progressPercent)}% da meta
             </div>
           </Card>
-          <Card title="Falta" className="bg-slate-900">
-            <div className="text-slate-300 text-xl font-bold mt-1">
+          <Card title="Falta" className="bg-white dark:bg-slate-900">
+            <div className="text-slate-700 dark:text-slate-300 text-xl font-bold mt-1">
               {formatCurrency(remainingAmount)}
             </div>
           </Card>
@@ -247,16 +247,16 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       )}
 
       {/* Daily Target */}
-      <Card title={isFutureView ? "Diária Necessária (Previsão)" : "Meta Diária Atual"} className="border border-amber-500/30 bg-amber-950/10">
+      <Card title={isFutureView ? "Diária Necessária (Previsão)" : "Meta Diária Atual"} className="border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-amber-500/20 text-amber-500">
+            <div className="p-3 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500">
                <Target size={24} />
             </div>
             <div>
-               <div className="text-3xl font-bold text-amber-400">
+               <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">
                   {formatCurrency(dailyTarget)}
                </div>
-               <div className="text-xs text-amber-300/70 mt-1">
+               <div className="text-xs text-amber-600/70 dark:text-amber-300/70 mt-1">
                   {helperText}
                </div>
             </div>
@@ -281,9 +281,9 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
              {renderCalendarGrid()}
           </div>
           
-          <div className="mt-4 flex gap-4 text-xs text-slate-400 justify-center">
-            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-800 border border-slate-700"></div> Trabalho</div>
-            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-rose-900/50 border border-rose-800"></div> Folga</div>
+          <div className="mt-4 flex gap-4 text-xs text-slate-500 dark:text-slate-400 justify-center">
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"></div> Trabalho</div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-rose-100 dark:bg-rose-900/50 border border-rose-200 dark:border-rose-800"></div> Folga</div>
           </div>
         </div>
       </Card>
