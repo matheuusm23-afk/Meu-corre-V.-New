@@ -28,7 +28,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   [today, startDay, endDay]);
 
   // We consider it the "Current Cycle View" if the start dates match. 
-  // We don't strictly check the end date equality for visual purposes to allow for gap continuation.
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
 
   const isFutureView = startDate > currentCycleEnd;
@@ -40,8 +39,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   }, [startDate, endDate]);
 
   const mainMonthLabel = useMemo(() => {
-    // Determine dominant month using midpoint
-    // This prevents confusion (e.g., Cycle Nov 11 - Dec 10 should be labeled "Novembro" generally, not "Dezembro")
     const midPoint = new Date((startDate.getTime() + endDate.getTime()) / 2);
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
   }, [startDate, endDate]);
@@ -53,29 +50,31 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     setViewDate(newDate);
   };
 
-  // 1. Calculate Progress
-  const currentPeriodIncome = useMemo(() => {
-    // If we are in the current cycle view, we want to see income for this specific range
+  // 1. Calculate Progress (Balance = Income - Expenses)
+  const currentPeriodBalance = useMemo(() => {
     return transactions
       .filter(t => {
         const tDate = new Date(t.date);
-        return t.type === 'income' && tDate >= startDate && tDate <= endDate;
+        return tDate >= startDate && tDate <= endDate;
       })
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => {
+        if (t.type === 'income') return acc + t.amount;
+        if (t.type === 'expense') return acc - t.amount;
+        return acc;
+      }, 0);
   }, [transactions, startDate, endDate]);
 
-  const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentPeriodIncome);
-  const progressPercent = Math.min(100, (currentPeriodIncome / (goalSettings.monthlyGoal || 1)) * 100);
+  const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentPeriodBalance);
+  // Clamp progress between 0 and 100
+  const progressPercent = Math.max(0, Math.min(100, (currentPeriodBalance / (goalSettings.monthlyGoal || 1)) * 100));
 
   // 2. Generate Calendar Days for the Cycle
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     const curr = new Date(startDate);
-    // Safety: Increase max iterations to support manual cycles (e.g. Start 1, End 30 = ~60 days)
     const maxIterations = 90; 
     let count = 0;
     
-    // Clone to avoid mutating the memoized start date
     const iter = new Date(curr);
 
     while (iter <= endDate && count < maxIterations) {
@@ -96,11 +95,8 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       
       if (!isOff) {
         if (isCurrentCycleView) {
-            // Only count if date is today or future
-            // Normalize to start of day for comparison
             const dTime = new Date(date).setHours(0,0,0,0);
             const tTime = new Date(today).setHours(0,0,0,0);
-            // If today is past the endDate (gap), we still show 0 remaining instead of negative or blocking
             if (dTime >= tTime) workDays++;
         } else {
             workDays++;
@@ -117,8 +113,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   let helperText = '';
 
   if (isCurrentCycleView) {
-    // If we are technically past the end date (gap scenario), workDaysCount will be 0 for future days.
-    // But we still want to show the stats.
     dailyTarget = workDaysCount > 0 ? remainingAmount / workDaysCount : 0;
     helperText = workDaysCount > 0 
       ? `Para bater a meta em ${workDaysCount} dias restantes` 
@@ -127,7 +121,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     dailyTarget = workDaysCount > 0 ? goalSettings.monthlyGoal / workDaysCount : 0;
     helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
   } else {
-    // Past cycles
     dailyTarget = 0;
     helperText = 'Ciclo encerrado';
   }
@@ -142,7 +135,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
 
   const handleDayClick = (date: Date) => {
     const dateStr = getISODate(date);
-    // Prevent editing past days in current cycle
     if (isCurrentCycleView && date < new Date(new Date().setHours(0,0,0,0))) return;
 
     const isOff = goalSettings.daysOff.includes(dateStr);
@@ -159,7 +151,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   const renderCalendarGrid = () => {
     const gridItems = [];
     
-    // Empty cells for start offset
     const firstDayOfWeek = startDate.getDay(); // 0 = Sun
     for (let i = 0; i < firstDayOfWeek; i++) {
        gridItems.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
@@ -171,7 +162,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       const isFirstOfMonth = dayNum === 1;
       const isOff = goalSettings.daysOff.includes(dateStr);
       
-      // Date comparison for visuals
       const isToday = date.toDateString() === today.toDateString();
       const isPast = date < new Date(new Date().setHours(0,0,0,0));
       
@@ -187,7 +177,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
             ${!isPast && !isOff ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700' : ''}
           `}
         >
-          {/* Small Month Label on 1st of month */}
           {isFirstOfMonth && (
              <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] uppercase bg-white dark:bg-slate-950 text-slate-400 px-1 rounded shadow-sm">
                {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
@@ -210,7 +199,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         <p className="text-slate-500 dark:text-slate-400 text-sm">Defina quanto quer ganhar</p>
       </header>
 
-      {/* Cycle Navigator */}
       <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
         <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-lg">
           <ChevronLeft size={24} />
@@ -224,7 +212,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </button>
       </div>
 
-      {/* Goal Input */}
       <Card title={`Meta do Ciclo`} className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-800 text-white">
         <div className="flex items-center gap-2 mt-2">
           <span className="text-2xl text-slate-400 font-bold">R$</span>
@@ -237,12 +224,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </div>
       </Card>
 
-      {/* Progress View - Show for Current Cycle */}
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-4">
           <Card title="Já Feito" className="bg-white dark:bg-slate-900">
-            <div className="text-emerald-600 dark:text-emerald-400 text-xl font-bold mt-1">
-              {formatCurrency(currentPeriodIncome)}
+            <div className={`text-xl font-bold mt-1 ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {formatCurrency(currentPeriodBalance)}
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
               <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
@@ -259,7 +245,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </div>
       )}
 
-      {/* Daily Target */}
       <Card title={isFutureView ? "Diária Necessária (Previsão)" : "Meta Diária Atual"} className="border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
          <div className="flex items-center gap-4">
             <div className="p-3 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500">
@@ -276,14 +261,12 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
          </div>
       </Card>
 
-      {/* Calendar Day Off Planner */}
       <Card 
         title="Planejamento de Folgas" 
         subtitle={`Ciclo: ${periodLabel}`} 
         icon={<CalIcon className="text-slate-400"/>}
       >
         <div className="mt-4">
-          {/* Days of Week Header */}
           <div className="grid grid-cols-7 gap-1 mb-2 text-center">
              {['D','S','T','Q','Q','S','S'].map((d, i) => (
                <div key={i} className="text-xs text-slate-500 font-bold">{d}</div>
