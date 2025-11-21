@@ -277,7 +277,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
              ))}
           </div>
           
-          <div className="flex flex-wrap gap-1 sm:gap-2 justify-start">
+          <div className="grid grid-cols-7 gap-1 place-items-center">
              {renderCalendarGrid()}
           </div>
           
