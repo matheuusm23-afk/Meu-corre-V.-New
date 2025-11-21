@@ -294,10 +294,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             return (
               <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
                 
-                {/* Floating Value Label (Animated) */}
+                {/* Floating Value Label (Visible Always) */}
                 <div className={`
-                  absolute -top-6 text-[10px] font-bold transition-all duration-300 
-                  opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0
+                  absolute -top-6 text-[10px] font-bold
                   ${textColor}
                 `}>
                   {isZero ? '' : Math.round(day.balance)}
