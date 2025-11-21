@@ -74,6 +74,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleManualAction = () => {
     setFormDesc('');
+    // Focus logic kept optional or removed based on preference, 
+    // but to prevent keyboard popup immediately on load, we don't focus 'amount' initially.
     setTimeout(() => {
       descriptionInputRef.current?.focus();
     }, 100);
@@ -249,20 +251,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {detailView === 'week' && renderTransactionList('Movimentações da Semana', stats.week.list, true)}
       {detailView === 'month' && renderTransactionList('Histórico Mensal', stats.month.list, false, true)}
 
-      {/* Add/Edit Form Modal */}
+      {/* Add/Edit Form Modal - Centered & Adjusted */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-4">
-          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl animate-in slide-in-from-bottom duration-200 sm:zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowForm(false)}
+          />
+          
+          {/* Modal Content - Centered */}
+          <div className="relative bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-800 p-6 shadow-2xl animate-in zoom-in-95 duration-200 z-10 overflow-hidden">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white">
                 {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
               </h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white p-2">
                 <X size={24} />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               
               {/* Value Input */}
               <div>
@@ -275,7 +284,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={e => setFormAmount(e.target.value)}
                   placeholder="0,00"
                   className="w-full bg-slate-950 border border-slate-800 text-white text-3xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-700 font-bold"
-                  autoFocus={!isEditingId}
+                  inputMode="decimal"
                 />
               </div>
               
@@ -293,7 +302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {/* Quick Actions for Income */}
               {formType === 'income' && (
-                <div className="py-2">
+                <div className="py-1">
                   <label className="block text-xs text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
                   <div className="grid grid-cols-3 gap-2">
                     {DELIVERY_APPS.map(app => (
@@ -301,9 +310,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         key={app}
                         type="button"
                         onClick={() => handleQuickAction(app)}
-                        className={`py-2 px-1 rounded-lg text-sm font-semibold transition-colors border ${
+                        className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
                           formDesc === app 
-                            ? 'bg-amber-500 text-slate-900 border-amber-500' 
+                            ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-lg shadow-amber-500/20' 
                             : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
                         }`}
                       >
@@ -313,7 +322,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <button
                       type="button"
                       onClick={handleManualAction}
-                      className={`py-2 px-1 rounded-lg text-sm font-semibold transition-colors border ${
+                      className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
                          !DELIVERY_APPS.includes(formDesc) && formDesc !== ''
                             ? 'bg-slate-700 text-white border-slate-600' 
                             : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
@@ -328,7 +337,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {/* Description Input (Manual/Confirmation) */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1 uppercase font-bold">
-                  {formType === 'income' ? 'Descrição Manual' : 'Descrição'}
+                  {formType === 'income' ? 'Descrição' : 'Descrição'}
                 </label>
                 <input 
                   ref={descriptionInputRef}
@@ -336,15 +345,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   required
                   value={formDesc}
                   onChange={e => setFormDesc(e.target.value)}
-                  placeholder={formType === 'income' ? "Selecione acima ou digite..." : "Ex: Gasolina, Manutenção..."}
+                  placeholder={formType === 'income' ? "Selecione ou digite..." : "Ex: Gasolina, Manutenção..."}
                   className="w-full bg-slate-950 border border-slate-800 text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
                 />
               </div>
 
               <button 
                 type="submit"
-                className={`w-full py-4 rounded-xl font-bold text-lg mt-2 transition-transform active:scale-95 ${
-                  formType === 'income' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                className={`w-full py-4 rounded-xl font-bold text-lg mt-2 transition-transform active:scale-95 shadow-lg ${
+                  formType === 'income' 
+                    ? 'bg-emerald-600 text-white shadow-emerald-900/30 hover:bg-emerald-500' 
+                    : 'bg-rose-600 text-white shadow-rose-900/30 hover:bg-rose-500'
                 }`}
               >
                 Salvar
