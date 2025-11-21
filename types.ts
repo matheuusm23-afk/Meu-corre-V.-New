@@ -12,6 +12,7 @@ export interface GoalSettings {
   monthlyGoal: number;
   daysOff: string[]; // Array of ISO date strings (YYYY-MM-DD)
   startDayOfMonth: number; // 1-31
+  endDayOfMonth?: number; // 1-31, or undefined for automatic (startDay - 1)
 }
 
 export type ViewMode = 'home' | 'goals' | 'settings';

@@ -1,3 +1,4 @@
+
 export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -77,44 +78,75 @@ export const getCycleStartDate = (year: number, month: number, startDay: number)
 
 /**
  * Calculates the start and end date of the billing period for a given reference date.
- * Uses clamped dates so setting startDay to 31 works for Feb (starts on 28/29).
+ * Supports automatic (contiguous) cycles or custom start/end days.
  */
-export const getBillingPeriodRange = (referenceDate: Date, startDay: number) => {
+export const getBillingPeriodRange = (referenceDate: Date, startDay: number, explicitEndDay?: number) => {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
   
-  // Calculate potential start date for the cycle belonging to the current calendar month
-  // e.g. if today is Jan 5, startDay 10. Reference Month = Jan.
-  // target start is Jan 10.
-  const currentMonthCycleStart = getCycleStartDate(year, month, startDay);
+  // AUTO MODE: If no explicit end day, use standard logic (End = Start - 1)
+  if (explicitEndDay === undefined) {
+    const currentMonthCycleStart = getCycleStartDate(year, month, startDay);
+    
+    let startDate: Date;
+    let endDate: Date;
+
+    if (referenceDate.getTime() >= currentMonthCycleStart.getTime()) {
+      // We are in the cycle that started this month
+      startDate = currentMonthCycleStart;
+      const nextMonthCycleStart = getCycleStartDate(year, month + 1, startDay);
+      endDate = new Date(nextMonthCycleStart);
+      endDate.setDate(endDate.getDate() - 1);
+    } else {
+      // We are in the cycle that started LAST month
+      startDate = getCycleStartDate(year, month - 1, startDay);
+      endDate = new Date(currentMonthCycleStart);
+      endDate.setDate(endDate.getDate() - 1);
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    return { startDate, endDate };
+  }
+
+  // MANUAL MODE (Linked Logic)
+  // Rule: If Closing Day is X, Start Day is ALWAYS X + 1.
+  // This ensures perfect continuity: e.g. Close 10th -> Start 11th.
+  
+  const closingDay = explicitEndDay;
+  const derivedStartDay = closingDay + 1;
+
+  // Check the Closing Date for the CURRENT calendar month of the reference date.
+  const closingDateThisMonth = getCycleStartDate(year, month, closingDay);
   
   let startDate: Date;
   let endDate: Date;
 
-  if (referenceDate.getTime() >= currentMonthCycleStart.getTime()) {
-    // We are in the cycle that started this month
-    // Cycle: [Month X, StartDay] to [Month X+1, StartDay - 1]
-    startDate = currentMonthCycleStart;
-    const nextMonthCycleStart = getCycleStartDate(year, month + 1, startDay);
-    endDate = new Date(nextMonthCycleStart);
-    endDate.setDate(endDate.getDate() - 1);
+  if (referenceDate.getTime() > closingDateThisMonth.setHours(23, 59, 59, 999)) {
+    // We are PAST the closing date of this month.
+    // Cycle is: Start [Day+1] of This Month -> End [Day] of Next Month.
+    // e.g. Today Nov 20. Closing Nov 10. 
+    // Cycle: Nov 11 -> Dec 10.
+    startDate = getCycleStartDate(year, month, derivedStartDay);
+    endDate = getCycleStartDate(year, month + 1, closingDay);
   } else {
-    // We are in the cycle that started LAST month
-    // Cycle: [Month X-1, StartDay] to [Month X, StartDay - 1]
-    startDate = getCycleStartDate(year, month - 1, startDay);
-    endDate = new Date(currentMonthCycleStart);
-    endDate.setDate(endDate.getDate() - 1);
+    // We are BEFORE or ON the closing date of this month.
+    // Cycle is: Start [Day+1] of Last Month -> End [Day] of This Month.
+    // e.g. Today Nov 5. Closing Nov 10.
+    // Cycle: Oct 11 -> Nov 10.
+    startDate = getCycleStartDate(year, month - 1, derivedStartDay);
+    endDate = getCycleStartDate(year, month, closingDay);
   }
 
-  // Normalize times
   startDate.setHours(0, 0, 0, 0);
   endDate.setHours(23, 59, 59, 999);
 
   return { startDate, endDate };
 };
 
-export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, startDay: number) => {
-  const { startDate, endDate } = getBillingPeriodRange(referenceDate, startDay);
+export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, startDay: number, endDay?: number) => {
+  const { startDate, endDate } = getBillingPeriodRange(referenceDate, startDay, endDay);
   const check = new Date(dateToCheck);
   return check.getTime() >= startDate.getTime() && check.getTime() <= endDate.getTime();
 };

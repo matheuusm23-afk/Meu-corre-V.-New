@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 interface DashboardProps {
   transactions: Transaction[];
   startDayOfMonth: number;
+  endDayOfMonth?: number;
   onAddTransaction: (t: Transaction) => void;
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
@@ -20,6 +21,7 @@ const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
   startDayOfMonth = 1,
+  endDayOfMonth,
   onAddTransaction, 
   onUpdateTransaction, 
   onDeleteTransaction 
@@ -56,9 +58,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       today: calc(t => isSameDay(new Date(t.date), today)),
       week: calc(t => isSameWeek(new Date(t.date), today)),
       // Use custom billing period logic for Month
-      month: calc(t => isDateInBillingPeriod(new Date(t.date), today, startDayOfMonth)),
+      month: calc(t => isDateInBillingPeriod(new Date(t.date), today, startDayOfMonth, endDayOfMonth)),
     };
-  }, [transactions, startDayOfMonth]);
+  }, [transactions, startDayOfMonth, endDayOfMonth]);
 
   // Weekly Chart Data Calculation
   const weeklyChartData = useMemo(() => {
@@ -88,10 +90,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Get label for current billing period
   const billingPeriodLabel = useMemo(() => {
-    const { startDate, endDate } = getBillingPeriodRange(today, startDayOfMonth);
+    const { startDate, endDate } = getBillingPeriodRange(today, startDayOfMonth, endDayOfMonth);
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
     return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
-  }, [startDayOfMonth]);
+  }, [startDayOfMonth, endDayOfMonth]);
 
   const handleOpenForm = (type: TransactionType, transactionToEdit?: Transaction) => {
     setIsFabOpen(false); // Close FAB if open

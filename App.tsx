@@ -90,6 +90,7 @@ const App: React.FC = () => {
           <Dashboard 
             transactions={transactions}
             startDayOfMonth={goalSettings.startDayOfMonth}
+            endDayOfMonth={goalSettings.endDayOfMonth}
             onAddTransaction={handleAddTransaction}
             onUpdateTransaction={handleUpdateTransaction}
             onDeleteTransaction={handleDeleteTransaction}

@@ -15,20 +15,21 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   
   const today = new Date();
   const startDay = goalSettings.startDayOfMonth || 1;
+  const endDay = goalSettings.endDayOfMonth;
 
   // Determine the billing period for the current view
   const { startDate, endDate } = useMemo(() => 
-    getBillingPeriodRange(viewDate, startDay), 
-  [viewDate, startDay]);
+    getBillingPeriodRange(viewDate, startDay, endDay), 
+  [viewDate, startDay, endDay]);
 
   // Determine if we are viewing the current actual cycle
   const { startDate: currentCycleStart, endDate: currentCycleEnd } = useMemo(() => 
-    getBillingPeriodRange(today, startDay), 
-  [today, startDay]);
+    getBillingPeriodRange(today, startDay, endDay), 
+  [today, startDay, endDay]);
 
-  const isCurrentCycleView = 
-    startDate.getTime() === currentCycleStart.getTime() && 
-    endDate.getTime() === currentCycleEnd.getTime();
+  // We consider it the "Current Cycle View" if the start dates match. 
+  // We don't strictly check the end date equality for visual purposes to allow for gap continuation.
+  const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
 
   const isFutureView = startDate > currentCycleEnd;
 
@@ -39,10 +40,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   }, [startDate, endDate]);
 
   const mainMonthLabel = useMemo(() => {
-    // Usually the "Goal Month" is the one where the cycle ends, or the majority of days are.
-    // Let's use the End Date's month as the "Fiscal Month" name.
-    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(endDate);
-  }, [endDate]);
+    // Determine dominant month using midpoint
+    // This prevents confusion (e.g., Cycle Nov 11 - Dec 10 should be labeled "Novembro" generally, not "Dezembro")
+    const midPoint = new Date((startDate.getTime() + endDate.getTime()) / 2);
+    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
+  }, [startDate, endDate]);
 
   // Navigation
   const changePeriod = (offset: number) => {
@@ -51,17 +53,16 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     setViewDate(newDate);
   };
 
-  // 1. Calculate Progress (Only relevant for Current Cycle)
+  // 1. Calculate Progress
   const currentPeriodIncome = useMemo(() => {
-    if (!isCurrentCycleView) return 0;
-    
+    // If we are in the current cycle view, we want to see income for this specific range
     return transactions
       .filter(t => {
         const tDate = new Date(t.date);
         return t.type === 'income' && tDate >= startDate && tDate <= endDate;
       })
       .reduce((acc, t) => acc + t.amount, 0);
-  }, [transactions, isCurrentCycleView, startDate, endDate]);
+  }, [transactions, startDate, endDate]);
 
   const remainingAmount = Math.max(0, goalSettings.monthlyGoal - currentPeriodIncome);
   const progressPercent = Math.min(100, (currentPeriodIncome / (goalSettings.monthlyGoal || 1)) * 100);
@@ -70,9 +71,17 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     const curr = new Date(startDate);
-    while (curr <= endDate) {
-      days.push(new Date(curr));
-      curr.setDate(curr.getDate() + 1);
+    // Safety: Increase max iterations to support manual cycles (e.g. Start 1, End 30 = ~60 days)
+    const maxIterations = 90; 
+    let count = 0;
+    
+    // Clone to avoid mutating the memoized start date
+    const iter = new Date(curr);
+
+    while (iter <= endDate && count < maxIterations) {
+      days.push(new Date(iter));
+      iter.setDate(iter.getDate() + 1);
+      count++;
     }
     return days;
   }, [startDate, endDate]);
@@ -80,8 +89,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   // 3. Calculate Work Days Logic within the Cycle
   const calculateWorkDays = () => {
     let workDays = 0;
-    // For current cycle, start counting from today (remaining days)
-    // For future/past, count all days in cycle
     
     calendarDays.forEach(date => {
       const dateStr = getISODate(date);
@@ -93,6 +100,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
             // Normalize to start of day for comparison
             const dTime = new Date(date).setHours(0,0,0,0);
             const tTime = new Date(today).setHours(0,0,0,0);
+            // If today is past the endDate (gap), we still show 0 remaining instead of negative or blocking
             if (dTime >= tTime) workDays++;
         } else {
             workDays++;
@@ -109,12 +117,17 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   let helperText = '';
 
   if (isCurrentCycleView) {
+    // If we are technically past the end date (gap scenario), workDaysCount will be 0 for future days.
+    // But we still want to show the stats.
     dailyTarget = workDaysCount > 0 ? remainingAmount / workDaysCount : 0;
-    helperText = `Para bater a meta em ${workDaysCount} dias restantes`;
+    helperText = workDaysCount > 0 
+      ? `Para bater a meta em ${workDaysCount} dias restantes` 
+      : 'Meta finalizada ou dias esgotados';
   } else if (isFutureView) {
     dailyTarget = workDaysCount > 0 ? goalSettings.monthlyGoal / workDaysCount : 0;
     helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
   } else {
+    // Past cycles
     dailyTarget = 0;
     helperText = 'Ciclo encerrado';
   }
@@ -224,7 +237,7 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </div>
       </Card>
 
-      {/* Conditional Progress View - Only for Current Cycle */}
+      {/* Progress View - Show for Current Cycle */}
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-4">
           <Card title="Já Feito" className="bg-white dark:bg-slate-900">
