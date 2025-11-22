@@ -1,4 +1,5 @@
 
+
 import { FixedExpense } from './types';
 
 export const formatCurrency = (value: number) => {
@@ -178,33 +179,73 @@ export const getFixedExpensesForPeriod = (
     // If expense starts after this period ends, it doesn't count
     if (startDate > periodEnd) return null;
 
+    // CHECK FOR EXCLUDED DATES (Deleted occurrences)
+    // We need to calculate the "theoretical" occurrence date for this specific period 
+    // to check if it was excluded by the user.
+
+    let currentOccurrenceDate: Date | null = null;
+
     if (expense.recurrence === 'single') {
-      // For single expenses, the startDate acts as the occurrence date.
-      // We check if this date falls strictly within the current billing period.
-      // Using getTime() for safe comparison
+      // For single expenses, the startDate IS the occurrence date.
       if (startDate.getTime() >= periodStart.getTime() && startDate.getTime() <= periodEnd.getTime()) {
-          return { ...expense, currentInstallment: null };
+          currentOccurrenceDate = startDate;
       }
-      return null;
+    } else {
+      // For Monthly or Installments, we need to find the date within this period that matches the start Day-of-Month.
+      // Note: This simple logic assumes the day of month stays the same.
+      // If StartDate is Jan 31, and we are in Feb, Feb 28/29 is the target.
+      
+      // Iterate through months in this period (usually just one or two partials) to find the match
+      // Since period is usually ~30 days, we can check the month of periodStart and periodEnd.
+      
+      const targetDay = startDate.getDate();
+      
+      // Try constructing the date in the month of periodStart
+      let candidateDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), Math.min(targetDay, getDaysInMonth(periodStart.getFullYear(), periodStart.getMonth())));
+      
+      // If candidate is before periodStart, maybe it falls in the next month (if period spans months)
+      if (candidateDate < periodStart) {
+        candidateDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), Math.min(targetDay, getDaysInMonth(periodEnd.getFullYear(), periodEnd.getMonth())));
+      }
+
+      // Verify the candidate is within range
+      if (candidateDate >= periodStart && candidateDate <= periodEnd && candidateDate >= startDate) {
+        currentOccurrenceDate = candidateDate;
+      }
+    }
+
+    // If we found a valid occurrence date for this period, check if it is excluded
+    if (currentOccurrenceDate) {
+        const occurrenceStr = getISODate(currentOccurrenceDate);
+        if (expense.excludedDates?.includes(occurrenceStr)) {
+            return null;
+        }
+    } else {
+        // No occurrence in this period
+        return null;
+    }
+
+    // If we passed the exclusion check, return the processed object
+    if (expense.recurrence === 'single') {
+      return { ...expense, currentInstallment: null, occurrenceDate: getISODate(currentOccurrenceDate!) };
     }
 
     if (expense.recurrence === 'monthly') {
-      return { ...expense, currentInstallment: null };
+      return { ...expense, currentInstallment: null, occurrenceDate: getISODate(currentOccurrenceDate!) };
     }
 
     if (expense.recurrence === 'installments' && expense.installments) {
       // Calculate month difference to see if it's still valid
-      // Simple approximation using year/month math
       const startMonthIndex = startDate.getFullYear() * 12 + startDate.getMonth();
-      const currentMonthIndex = periodStart.getFullYear() * 12 + periodStart.getMonth();
+      // Use the occurrence date to determine installment number
+      const currentMonthIndex = currentOccurrenceDate!.getFullYear() * 12 + currentOccurrenceDate!.getMonth();
       
       const monthDiff = currentMonthIndex - startMonthIndex;
       
-      // Note: monthDiff 0 is the first installment (1/X)
       if (monthDiff >= 0 && monthDiff < expense.installments) {
-        return { ...expense, currentInstallment: monthDiff + 1 };
+        return { ...expense, currentInstallment: monthDiff + 1, occurrenceDate: getISODate(currentOccurrenceDate!) };
       }
     }
     return null;
-  }).filter((e): e is (FixedExpense & { currentInstallment: number | null }) => e !== null);
+  }).filter((e): e is (FixedExpense & { currentInstallment: number | null, occurrenceDate: string }) => e !== null);
 };

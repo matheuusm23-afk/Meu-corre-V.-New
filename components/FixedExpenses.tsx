@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2 } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -29,6 +29,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   
+  // Delete Modal State
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
+
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
@@ -58,6 +61,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setViewDate(newDate);
   };
 
+  // Calculate active expenses for this period
+  // Note: getFixedExpensesForPeriod now returns items with 'occurrenceDate'
   const activeItems = useMemo(() => {
     return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
   }, [fixedExpenses, startDate, endDate]);
@@ -67,8 +72,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const totalIncome = activeIncomes.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  
+  // Credit Card Specific Calculation
+  const creditCardExpenses = activeExpenses.filter(i => 
+    i.title.toLowerCase().includes('cartão') || 
+    i.category.toLowerCase().includes('cartão') ||
+    i.title.toLowerCase().includes('fatura') ||
+    i.title.toLowerCase().includes('card')
+  );
+  const totalCreditCard = creditCardExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Net calculation: Expenses - Income
   const netValue = totalExpenses - totalIncome;
   const isSurplus = netValue < 0;
 
@@ -82,9 +95,12 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       amount: parseFloat(amount),
       category: title,
       recurrence,
-      startDate: formDate || getISODate(startDate),
+      // If editing, keep original start date unless explicitly changed by user logic (omitted for simplicity, assumes formDate is master)
+      // For new items, formDate is used. If user is in a specific month view, formDate defaults to that month.
+      startDate: formDate, 
       installments: recurrence === 'installments' ? parseInt(installments) : undefined,
-      type: formType
+      type: formType,
+      excludedDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.excludedDates : []
     };
 
     if (editingId) {
@@ -114,7 +130,18 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const openForm = (type: 'income' | 'expense') => {
     resetForm();
     setFormType(type);
-    setFormDate(getISODate(new Date()));
+    
+    // Default date logic:
+    // If today is within the viewed period, use today.
+    // Otherwise, use the start date of the viewed period.
+    // This ensures new recurring expenses start from the VIEWED month onwards.
+    const today = new Date();
+    if (today >= startDate && today <= endDate) {
+        setFormDate(getISODate(today));
+    } else {
+        setFormDate(getISODate(startDate));
+    }
+    
     setShowForm(true);
   };
 
@@ -129,17 +156,61 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setShowForm(true);
   };
 
+  const handleDeleteClick = (item: FixedExpense & { occurrenceDate: string }) => {
+    if (item.recurrence === 'single') {
+      // Instant delete for single items
+      onDeleteExpense(item.id);
+    } else {
+      // Show modal for recurring items
+      setDeleteModal({ isOpen: true, item });
+    }
+  };
+
+  const handleConfirmDelete = (mode: 'single' | 'all') => {
+    if (!deleteModal.item) return;
+
+    if (mode === 'all') {
+      onDeleteExpense(deleteModal.item.id);
+    } else {
+      // Add current occurrence date to excluded list
+      const currentItem = fixedExpenses.find(f => f.id === deleteModal.item!.id);
+      if (currentItem) {
+        const updatedExcluded = [...(currentItem.excludedDates || []), deleteModal.item.occurrenceDate];
+        onUpdateExpense({ ...currentItem, excludedDates: updatedExcluded });
+      }
+    }
+    setDeleteModal({ isOpen: false, item: null });
+  };
+
   const renderList = (items: typeof activeItems, isIncome: boolean) => (
     <div className="space-y-3">
-       {items.map(item => (
-         <div key={item.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99]" onClick={() => handleEdit(item)}>
+       {items.map(item => {
+         const isCreditCard = !isIncome && (
+            item.title.toLowerCase().includes('cartão') || 
+            item.category.toLowerCase().includes('cartão') ||
+            item.title.toLowerCase().includes('fatura') ||
+            item.title.toLowerCase().includes('card')
+         );
+
+         return (
+         <div 
+            key={item.id} 
+            className={`flex items-center justify-between p-4 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] ${
+               isCreditCard 
+                 ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
+                 : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+            }`} 
+            onClick={() => handleEdit(item)}
+         >
             <div className="flex items-center gap-3">
                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                  isIncome 
                   ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
-                  : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+                  : isCreditCard
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                    : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
-                  {isIncome ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                  {isIncome ? <TrendingUp size={18} /> : isCreditCard ? <CreditCard size={18} /> : <Receipt size={18} />}
                </div>
                <div>
                   <p className="font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
@@ -162,11 +233,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                      <span className="text-[10px] text-slate-400 font-medium uppercase">
                         {item.recurrence === 'installments' ? 'Parcelado' : ''}
                      </span>
+                     {isCreditCard && (
+                        <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-md uppercase">
+                          Cartão
+                       </span>
+                     )}
                   </div>
                </div>
             </div>
             <div className="flex items-center gap-3">
-               <span className={`font-bold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
+               <span className={`font-bold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {formatCurrency(item.amount)}
                </span>
                <div className="flex items-center -mr-2">
@@ -182,7 +258,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                  <button 
                    onClick={(e) => {
                      e.stopPropagation();
-                     onDeleteExpense(item.id);
+                     handleDeleteClick(item);
                    }}
                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
                  >
@@ -191,7 +267,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                </div>
             </div>
          </div>
-       ))}
+       )})}
     </div>
   );
 
@@ -223,6 +299,21 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white border-none shadow-lg shadow-blue-500/20">
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Receitas Fixas</div>
              <div className="text-xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
+        </Card>
+        {/* New Credit Card Summary */}
+        <Card className="col-span-2 bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20">
+             <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-2">
+                    <CreditCard size={12} />
+                    Cartão de Crédito
+                  </div>
+                  <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
+                </div>
+                <div className="bg-white/20 p-3 rounded-xl text-white/90">
+                   <CreditCard size={24} />
+                </div>
+             </div>
         </Card>
       </div>
 
@@ -261,6 +352,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         <Plus size={32} strokeWidth={2.5} />
       </button>
 
+      {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
           <div 
@@ -334,6 +426,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   onChange={e => setFormDate(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent"
                 />
+                <p className="text-[10px] text-slate-400 mt-1 ml-2">A cobrança iniciará a partir desta data.</p>
               </div>
 
               <div>
@@ -430,6 +523,48 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation Modal for Recurring Items */}
+      {deleteModal.isOpen && (
+         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div 
+               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+               onClick={() => setDeleteModal({ isOpen: false, item: null })}
+            />
+            <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
+               <div className="text-center mb-6">
+                  <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                     <Trash2 size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Excluir Item Recorrente</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                     Você deseja apagar somente deste mês ou parar de cobrar para sempre?
+                  </p>
+               </div>
+               
+               <div className="space-y-3">
+                  <button 
+                     onClick={() => handleConfirmDelete('single')}
+                     className="w-full py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all"
+                  >
+                     Apenas deste mês
+                  </button>
+                  <button 
+                     onClick={() => handleConfirmDelete('all')}
+                     className="w-full py-3.5 bg-rose-600 text-white font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-700 active:scale-95 transition-all"
+                  >
+                     Apagar Tudo (Todos os meses)
+                  </button>
+                  <button 
+                     onClick={() => setDeleteModal({ isOpen: false, item: null })}
+                     className="w-full py-2 text-slate-400 dark:text-slate-500 text-sm font-medium hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  >
+                     Cancelar
+                  </button>
+               </div>
+            </div>
+         </div>
       )}
     </div>
   );
