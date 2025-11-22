@@ -28,6 +28,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
+  const [showCreditCardDetails, setShowCreditCardDetails] = useState(false);
   
   // Delete Modal State
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
@@ -36,6 +37,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [formDate, setFormDate] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
@@ -70,16 +72,21 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const activeIncomes = activeItems.filter(i => i.type === 'income');
   const activeExpenses = activeItems.filter(i => i.type !== 'income');
 
-  const totalIncome = activeIncomes.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  
-  // Credit Card Specific Calculation
-  const creditCardExpenses = activeExpenses.filter(i => 
+  // Group Credit Card Expenses
+  const creditCardExpenses = useMemo(() => activeExpenses.filter(i => 
     i.title.toLowerCase().includes('cartão') || 
     i.category.toLowerCase().includes('cartão') ||
     i.title.toLowerCase().includes('fatura') ||
     i.title.toLowerCase().includes('card')
-  );
+  ), [activeExpenses]);
+
+  // Expenses that are NOT credit card
+  const otherExpenses = useMemo(() => activeExpenses.filter(i => 
+    !creditCardExpenses.includes(i)
+  ), [activeExpenses, creditCardExpenses]);
+
+  const totalIncome = activeIncomes.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
   const totalCreditCard = creditCardExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
   const netValue = totalExpenses - totalIncome;
@@ -93,7 +100,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       id: editingId || uuidv4(),
       title,
       amount: parseFloat(amount),
-      category: title,
+      category: category || title, // Use explicit category if set (e.g. Cartão), else fallback to title
       recurrence,
       // If editing, keep original start date unless explicitly changed by user logic (omitted for simplicity, assumes formDate is master)
       // For new items, formDate is used. If user is in a specific month view, formDate defaults to that month.
@@ -116,6 +123,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const resetForm = () => {
     setEditingId(null);
     setTitle('');
+    setCategory('');
     setAmount('');
     setFormDate('');
     setRecurrence('monthly');
@@ -124,7 +132,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   };
 
   const handleQuickCategory = (cat: string) => {
-    setTitle(cat);
+    if (cat === 'Cartão') {
+      // Special behavior for Credit Card:
+      // Set category to 'Cartão' so it groups correctly, but leave Title empty for user to type description
+      setCategory('Cartão');
+      // Optional: Focus the title input could be done with a ref, but standard behavior is fine.
+    } else {
+      // Standard behavior: Title and Category match
+      setTitle(cat);
+      setCategory(cat);
+    }
   };
 
   const openForm = (type: 'income' | 'expense') => {
@@ -149,6 +166,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setEditingId(item.id);
     setFormType(item.type || 'expense');
     setTitle(item.title);
+    setCategory(item.category);
     setAmount(item.amount.toString());
     setRecurrence(item.recurrence);
     setInstallments(item.installments ? item.installments.toString() : '12');
@@ -195,15 +213,15 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
          return (
          <div 
             key={item.id} 
-            className={`flex items-center justify-between p-4 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] ${
+            className={`flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] ${
                isCreditCard 
                  ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
                  : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
             }`} 
             onClick={() => handleEdit(item)}
          >
-            <div className="flex items-center gap-3">
-               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+               <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
                  isIncome 
                   ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
                   : isCreditCard
@@ -212,57 +230,57 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                }`}>
                   {isIncome ? <TrendingUp size={18} /> : isCreditCard ? <CreditCard size={18} /> : <Receipt size={18} />}
                </div>
-               <div>
-                  <p className="font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
+               <div className="min-w-0 flex-1">
+                  {isCreditCard && (
+                    <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
+                      Cartão de Crédito
+                    </p>
+                  )}
+                  <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight">{item.title}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                     {item.recurrence === 'installments' && item.currentInstallment && (
-                      <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md">
+                      <span className="text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md whitespace-nowrap">
                         {item.currentInstallment}/{item.installments}
                       </span>
                     )}
                     {item.recurrence === 'single' && (
-                       <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-md uppercase">
+                       <span className="text-[9px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-md uppercase whitespace-nowrap">
                           Única
                        </span>
                     )}
                     {item.recurrence === 'monthly' && (
-                       <span className="text-[10px] text-slate-400 font-medium uppercase">
+                       <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
                           Mensal
                        </span>
                     )}
-                     <span className="text-[10px] text-slate-400 font-medium uppercase">
+                     <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
                         {item.recurrence === 'installments' ? 'Parcelado' : ''}
                      </span>
-                     {isCreditCard && (
-                        <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-md uppercase">
-                          Cartão
-                       </span>
-                     )}
                   </div>
                </div>
             </div>
-            <div className="flex items-center gap-3">
-               <span className={`font-bold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
+            <div className="flex items-center gap-2 pl-2 shrink-0">
+               <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {formatCurrency(item.amount)}
                </span>
-               <div className="flex items-center -mr-2">
+               <div className="flex items-center -mr-1">
                  <button 
                    onClick={(e) => {
                      e.stopPropagation();
                      handleEdit(item);
                    }}
-                   className="p-2 text-slate-300 hover:text-amber-500 transition-colors"
+                   className="p-1.5 text-slate-300 hover:text-amber-500 transition-colors"
                  >
-                   <Edit2 size={16} />
+                   <Edit2 size={14} />
                  </button>
                  <button 
                    onClick={(e) => {
                      e.stopPropagation();
                      handleDeleteClick(item);
                    }}
-                   className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                   className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
                  >
-                   <Trash2 size={16} />
+                   <Trash2 size={14} />
                  </button>
                </div>
             </div>
@@ -300,8 +318,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Receitas Fixas</div>
              <div className="text-xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
         </Card>
-        {/* New Credit Card Summary */}
-        <Card className="col-span-2 bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20">
+        {/* Credit Card Summary with OnClick */}
+        <Card 
+          onClick={() => setShowCreditCardDetails(true)}
+          className="col-span-2 bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20 cursor-pointer active:scale-[0.99]"
+        >
              <div className="flex justify-between items-center">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-2">
@@ -313,6 +334,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                 <div className="bg-white/20 p-3 rounded-xl text-white/90">
                    <CreditCard size={24} />
                 </div>
+             </div>
+             <div className="text-[10px] text-white/60 mt-2 font-medium text-right w-full flex justify-end items-center gap-1">
+                Ver detalhes <ChevronRight size={10} />
              </div>
         </Card>
       </div>
@@ -341,7 +365,42 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               <span className="text-[10px] text-slate-400">Nenhuma conta</span>
             )}
          </div>
-         {activeExpenses.length > 0 ? renderList(activeExpenses, false) : null}
+
+         {/* Aggregate Credit Card Item (if exists) */}
+         {creditCardExpenses.length > 0 && (
+            <div 
+                onClick={() => setShowCreditCardDetails(true)}
+                className="flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800"
+            >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                        <CreditCard size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
+                            Fatura Atual
+                        </p>
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight">
+                            Cartão de Crédito
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
+                            {creditCardExpenses.length} lançamentos
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 pl-2 shrink-0">
+                <span className="font-bold text-sm whitespace-nowrap text-purple-700 dark:text-purple-400">
+                    {formatCurrency(totalCreditCard)}
+                </span>
+                <ChevronRight size={16} className="text-purple-300 dark:text-purple-500" />
+                </div>
+            </div>
+         )}
+
+         {/* Other Expenses */}
+         {otherExpenses.length > 0 && renderList(otherExpenses, false)}
       </div>
 
       {/* Floating Add Button */}
@@ -351,6 +410,47 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       >
         <Plus size={32} strokeWidth={2.5} />
       </button>
+
+      {/* Credit Card Details Modal */}
+      {showCreditCardDetails && (
+         <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-4 py-4 flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-10">
+                 <button 
+                    onClick={() => setShowCreditCardDetails(false)}
+                    className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                 >
+                    <ChevronLeft size={24} />
+                 </button>
+                 <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Cartão de Crédito</h2>
+                    <p className="text-xs text-slate-500">{periodLabel}</p>
+                 </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 pb-32">
+                 <div className="bg-gradient-to-br from-purple-600 to-violet-800 rounded-[2rem] p-6 text-white shadow-xl shadow-purple-500/20 mb-6">
+                    <div className="flex items-center gap-3 mb-2 opacity-80">
+                        <CreditCard size={18} />
+                        <span className="text-sm font-bold uppercase tracking-wider">Fatura Atual</span>
+                    </div>
+                    <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
+                 </div>
+
+                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 px-2">
+                    Lançamentos
+                 </h3>
+                 
+                 {creditCardExpenses.length > 0 ? (
+                     renderList(creditCardExpenses, false)
+                 ) : (
+                     <div className="text-center py-10 text-slate-400">
+                        <CreditCard size={48} className="mx-auto mb-4 opacity-20" />
+                        <p>Nenhum lançamento de cartão neste período.</p>
+                     </div>
+                 )}
+            </div>
+         </div>
+      )}
 
       {/* Form Modal */}
       {showForm && (
@@ -446,7 +546,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       type="button"
                       onClick={() => handleQuickCategory(cat)}
                       className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
-                        title === cat 
+                        category === cat // Highlight if it matches the selected Category (even if Title is different)
                           ? 'bg-blue-500 text-white' 
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                       }`}
