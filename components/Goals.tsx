@@ -213,7 +213,7 @@ export const Goals: React.FC<GoalsProps> = ({
 
       <Card title="Meta do Mês (Contas Fixas)" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
         <div className="flex items-center gap-3 mt-2">
-          <div className="text-4xl font-bold text-white w-full">
+          <div className="text-3xl font-bold text-white w-full">
             {formatCurrency(cycleGoal)}
           </div>
         </div>
@@ -226,7 +226,7 @@ export const Goals: React.FC<GoalsProps> = ({
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-5">
           <Card title="Já Feito">
-            <div className={`text-2xl font-bold mt-1 tracking-tight ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            <div className={`text-xl font-bold mt-1 tracking-tight ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {formatCurrency(currentPeriodBalance)}
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 mt-3 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
@@ -237,7 +237,7 @@ export const Goals: React.FC<GoalsProps> = ({
             </div>
           </Card>
           <Card title="Falta">
-            <div className="text-slate-800 dark:text-slate-200 text-2xl font-bold mt-1 tracking-tight">
+            <div className="text-slate-800 dark:text-slate-200 text-xl font-bold mt-1 tracking-tight">
               {formatCurrency(remainingAmount)}
             </div>
             <div className="text-xs text-slate-400 mt-3">
@@ -253,7 +253,7 @@ export const Goals: React.FC<GoalsProps> = ({
                <Target size={28} />
             </div>
             <div>
-               <div className="text-3xl font-bold text-amber-700 dark:text-amber-400 tracking-tight">
+               <div className="text-2xl font-bold text-amber-700 dark:text-amber-400 tracking-tight">
                   {formatCurrency(dailyTarget)}
                </div>
                <div className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-1 font-medium">

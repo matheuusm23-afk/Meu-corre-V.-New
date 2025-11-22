@@ -331,129 +331,139 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </h3>
         </div>
         
-        <div className="flex justify-between items-end h-48 gap-2 sm:gap-3">
-          {weeklyChartData.days.map((day, index) => {
-            const percentage = Math.min(100, (Math.abs(day.balance) / weeklyChartData.maxVal) * 100);
+        {/* Minimalist Weekly Chart */}
+        <div className="flex justify-between items-end h-32 px-2">
+          {weeklyChartData.days.map((day, i) => {
+            const heightPercent = Math.max(15, Math.min(100, (Math.abs(day.balance) / weeklyChartData.maxVal) * 100));
             const isPositive = day.balance >= 0;
-            const isZero = day.balance === 0;
             
-            const barGradient = isZero 
-              ? 'bg-slate-200 dark:bg-slate-800' 
-              : isPositive 
-                ? 'bg-gradient-to-t from-emerald-500 to-emerald-300 dark:from-emerald-600 dark:to-emerald-400' 
-                : 'bg-gradient-to-t from-rose-500 to-rose-300 dark:from-rose-600 dark:to-rose-400';
-            
-            const textColor = isZero 
-              ? 'text-slate-300 dark:text-slate-600' 
-              : isPositive 
-                ? 'text-emerald-600 dark:text-emerald-400' 
-                : 'text-rose-600 dark:text-rose-400';
-
             return (
-              <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
-                <div className={`absolute -top-8 text-[10px] font-bold z-10 transition-all duration-300 ${textColor}`}>
-                  {isZero ? '' : Math.round(day.balance)}
+              <div key={i} className="flex flex-col items-center gap-3 group w-full">
+                 {/* Bar */}
+                <div className="relative w-full flex justify-center h-full items-end">
+                   <div 
+                      style={{ height: `${heightPercent}%` }}
+                      className={`w-2.5 sm:w-4 rounded-full transition-all duration-500 relative ${
+                        day.isToday 
+                          ? (isPositive ? 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]')
+                          : (isPositive ? 'bg-slate-200 dark:bg-slate-800' : 'bg-slate-200 dark:bg-slate-800')
+                      } group-hover:scale-110`}
+                   >
+                    {/* Tooltip-ish value on hover */}
+                    {day.balance !== 0 && (
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[9px] px-2 py-1 rounded-md whitespace-nowrap pointer-events-none z-10">
+                        {formatCurrency(day.balance)}
+                      </div>
+                    )}
+                   </div>
                 </div>
-                <div className="w-full h-full absolute bottom-0 bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl -z-10 border border-slate-200/30 dark:border-slate-700/30"></div>
-                <div 
-                  className={`w-full rounded-2xl transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) relative ${barGradient} ${!isZero ? 'shadow-lg' : ''}`}
-                  style={{ 
-                    height: isZero ? '4px' : `${percentage}%`,
-                    opacity: isZero ? 0.5 : 1 
-                  }}
-                ></div>
-                <div className={`mt-3 text-[10px] sm:text-xs font-bold uppercase transition-colors ${day.isToday ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                {/* Day Label */}
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-amber-500' : 'text-slate-400'}`}>
                   {day.dayName}
-                </div>
+                </span>
               </div>
             );
           })}
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 relative z-10">
-        <div className="grid grid-cols-2 gap-4">
-          <Card 
-            title="Saldo do Dia" 
-            value={formatCurrency(stats.today.balance)} 
-            subtitle={`${stats.today.list.length} hoje`}
-            icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
-            variant="default"
-            onClick={() => setDetailView('today')}
-            valueClassName="text-xl sm:text-2xl"
-            className="border-l-[6px] border-l-emerald-500 dark:border-l-emerald-500"
-          />
-          <Card 
-            title="Saldo da Semana" 
-            value={formatCurrency(stats.week.balance)}
-            subtitle="Ver detalhes"
-            icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
-            onClick={() => setDetailView('week')}
-            valueClassName="text-xl sm:text-2xl"
-            className="border-l-[6px] border-l-blue-500 dark:border-l-blue-500"
-          />
-        </div>
+      <Card
+        title="Saldo Atual"
+        subtitle={billingPeriodLabel}
+        onClick={() => setDetailView('month')}
+        value={formatCurrency(stats.month.balance)}
+        variant={stats.month.balance >= 0 ? 'default' : 'default'}
+        className={`border-l-[6px] ${stats.month.balance >= 0 ? 'border-l-emerald-500' : 'border-l-rose-500'}`}
+        valueClassName={`text-3xl mb-1 ${stats.month.balance < 0 ? 'text-rose-500' : 'text-emerald-500'}`}
+      >
+         <div className="flex items-center gap-2 mt-3">
+            <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">
+               {stats.month.list.length} lançamentos
+            </span>
+         </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-4">
         <Card 
-          title="Saldo do Mês" 
-          value={formatCurrency(stats.month.balance)}
-          subtitle={`Ciclo: ${billingPeriodLabel}`}
-          icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
+          title="Receita" 
+          value={formatCurrency(stats.month.income)} 
+          icon={<TrendingUp size={18} className="text-emerald-500"/>}
           onClick={() => setDetailView('month')}
-          className="border-l-[6px] border-l-amber-500 dark:border-l-amber-500"
+          valueClassName="text-emerald-500"
         />
         <Card 
-          title="Combustível"
-          value={formatCurrency(Math.abs(fuelExpensesMonth))}
-          subtitle="Total no ciclo"
-          icon={<Fuel className="text-rose-500 dark:text-rose-400" />}
-          className="border-l-[6px] border-l-rose-500 dark:border-l-rose-500"
+          title="Despesa" 
+          value={formatCurrency(stats.month.expense)} 
+          icon={<TrendingDown size={18} className="text-rose-500"/>}
+          onClick={() => setDetailView('month')}
+          valueClassName="text-rose-500"
         />
       </div>
+      
+      {/* Fuel Card Highlight */}
+      <Card 
+        title="Gasto com Combustível" 
+        value={formatCurrency(fuelExpensesMonth)}
+        icon={<Fuel size={18} className="text-amber-500"/>}
+        className="bg-amber-50/50 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/30"
+        valueClassName="text-amber-600 dark:text-amber-500"
+      />
 
-      {detailView === 'today' && renderTransactionList('Movimentações de Hoje', stats.today.list, true)}
-      {detailView === 'week' && renderTransactionList('Movimentações da Semana', stats.week.list, true)}
-      {detailView === 'month' && renderTransactionList(`Ciclo ${billingPeriodLabel}`, stats.month.list, true, true)}
+      <div className="grid grid-cols-2 gap-4 mt-2">
+         <button 
+            onClick={() => setDetailView('today')}
+            className="p-4 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+         >
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoje</span>
+            <span className={`text-lg font-bold ${stats.today.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+               {formatCurrency(stats.today.balance)}
+            </span>
+         </button>
+         <button 
+            onClick={() => setDetailView('week')}
+            className="p-4 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+         >
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Semana</span>
+            <span className={`text-lg font-bold ${stats.week.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+               {formatCurrency(stats.week.balance)}
+            </span>
+         </button>
+      </div>
 
-      {isFabOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
-          onClick={() => setIsFabOpen(false)}
-        />
-      )}
-
-      <div className="fixed bottom-32 right-6 z-50 flex flex-col items-end gap-4">
-        <div className={`flex items-center gap-4 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-          <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
-            Despesa
-          </span>
-          <button 
-            onClick={() => handleOpenForm('expense')}
-            className="w-14 h-14 bg-rose-600 rounded-2xl shadow-xl shadow-rose-600/30 flex items-center justify-center text-white hover:bg-rose-500 active:scale-90 transition-all border-2 border-white/10"
-          >
-            <TrendingDown size={24} />
-          </button>
-        </div>
-        <div className={`flex items-center gap-4 transition-all duration-300 delay-100 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-          <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
-            Receita
-          </span>
-          <button 
-            onClick={() => handleOpenForm('income')}
-            className="w-14 h-14 bg-emerald-600 rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-center text-white hover:bg-emerald-500 active:scale-90 transition-all border-2 border-white/10"
-          >
-            <TrendingUp size={24} />
-          </button>
-        </div>
+      {/* Floating Action Button (Main) */}
+      <div className="fixed bottom-32 right-6 z-40 flex flex-col items-end gap-4">
+        {isFabOpen && (
+          <div className="flex flex-col items-end gap-3 animate-in slide-in-from-bottom-4 duration-200">
+            <button 
+              onClick={() => handleOpenForm('income')}
+              className="flex items-center gap-3 pr-2 group"
+            >
+              <span className="text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity">Receita</span>
+              <div className="w-12 h-12 bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/30 flex items-center justify-center text-white">
+                <TrendingUp size={20} />
+              </div>
+            </button>
+            <button 
+              onClick={() => handleOpenForm('expense')}
+              className="flex items-center gap-3 pr-2 group"
+            >
+              <span className="text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity">Despesa</span>
+              <div className="w-12 h-12 bg-rose-500 rounded-2xl shadow-lg shadow-rose-500/30 flex items-center justify-center text-white">
+                <TrendingDown size={20} />
+              </div>
+            </button>
+          </div>
+        )}
+        
         <button 
           onClick={() => setIsFabOpen(!isFabOpen)}
-          className={`w-16 h-16 rounded-[1.25rem] shadow-2xl shadow-amber-500/30 flex items-center justify-center text-white transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950 ${
-            isFabOpen ? 'bg-slate-800 rotate-[135deg]' : 'bg-gradient-to-br from-amber-500 to-amber-600'
-          }`}
+          className={`w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 dark:bg-slate-200' : ''}`}
         >
-          <Plus size={32} strokeWidth={2.5} />
+          <Plus size={32} className={`transition-colors ${isFabOpen ? 'text-white dark:text-slate-900' : 'text-white dark:text-slate-900'}`} strokeWidth={2.5} />
         </button>
       </div>
 
+      {/* Add Transaction Modal */}
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
           <div 
@@ -461,130 +471,144 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onClick={() => setShowForm(false)}
           />
           
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
+          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+             
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  {isEditingId ? 'Editar' : 'Nova'} Movimentação
                 </h3>
-                <p className="text-slate-500 text-sm mt-1">Preencha os detalhes abaixo</p>
-              </div>
-              <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full text-slate-500 hover:bg-slate-200 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">Valor</label>
-                <div className="relative group">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl transition-colors group-focus-within:text-amber-500">R$</span>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    required
-                    value={formAmount}
-                    onChange={e => setFormAmount(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-4xl pl-14 pr-6 py-6 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none placeholder:text-slate-300 font-bold transition-all border border-transparent focus:border-amber-500/20"
-                    inputMode="decimal"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">Data</label>
-                <input 
-                  type="date" 
-                  required
-                  value={formDate}
-                  onChange={e => setFormDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-5 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent focus:border-amber-500/20"
-                />
-              </div>
+                <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
+                  <X size={20} />
+                </button>
+             </div>
 
-              <div className="py-1">
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">
-                   {formType === 'income' ? 'Origem' : 'Categoria'}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(formType === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(item => {
-                    const isActive = !customInputVisible && formDesc === item;
-                    return (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => handleQuickAction(item)}
-                        className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 whitespace-nowrap overflow-hidden text-ellipsis ${
-                          isActive
-                            ? formType === 'income' 
-                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
-                              : 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 ring-2 ring-rose-500 ring-offset-2 dark:ring-offset-slate-900'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                        }`}
-                        title={item}
-                      >
-                        {item}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={handleManualAction}
-                    className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 ${
-                       customInputVisible
-                          ? 'bg-slate-800 text-white shadow-lg ring-2 ring-slate-800 ring-offset-2 dark:ring-offset-slate-900' 
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    Outro
-                  </button>
+             <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Type Toggle */}
+                <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex relative">
+                   <button
+                      type="button"
+                      onClick={() => setFormType('income')}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                        formType === 'income' 
+                          ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                   >
+                      <TrendingUp size={16} />
+                      Entrada
+                   </button>
+                   <button
+                      type="button"
+                      onClick={() => setFormType('expense')}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                        formType === 'expense' 
+                          ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm' 
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                   >
+                      <TrendingDown size={16} />
+                      Saída
+                   </button>
                 </div>
-              </div>
 
-              {customInputVisible && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                  <input 
-                    ref={descriptionInputRef}
-                    type="text" 
-                    required={customInputVisible}
-                    value={formDesc}
-                    onChange={e => setFormDesc(e.target.value)}
-                    placeholder="Digite a descrição..."
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-5 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all border border-transparent"
-                  />
+                <div>
+                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Valor</label>
+                   <div className="relative group">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">R$</span>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        required
+                        value={formAmount}
+                        onChange={e => setFormAmount(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-4xl pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
+                        inputMode="decimal"
+                        autoFocus={!isEditingId}
+                      />
+                   </div>
                 </div>
-              )}
 
-              <div className="flex gap-3 mt-4">
-                {isEditingId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm('Apagar essa movimentação?')) {
-                         onDeleteTransaction(isEditingId);
-                         setShowForm(false);
-                      }
-                    }}
-                    className="flex-1 py-5 rounded-3xl font-bold text-lg bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 transition-all active:scale-95 hover:bg-rose-200 dark:hover:bg-rose-900/50"
-                  >
-                    Excluir
-                  </button>
-                )}
+                <div>
+                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Descrição</label>
+                   
+                   {!customInputVisible ? (
+                     <div className="grid grid-cols-2 gap-3 mb-3">
+                        {(formType === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(app => (
+                           <button
+                              key={app}
+                              type="button"
+                              onClick={() => handleQuickAction(app)}
+                              className={`py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                                formDesc === app 
+                                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' 
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              }`}
+                           >
+                              {app}
+                           </button>
+                        ))}
+                        <button
+                           type="button"
+                           onClick={handleManualAction}
+                           className="col-span-2 py-3 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border-2 border-dashed border-slate-200 dark:border-slate-700"
+                        >
+                           Outro...
+                        </button>
+                     </div>
+                   ) : (
+                      <div className="relative animate-in fade-in slide-in-from-bottom-2">
+                        <input 
+                          ref={descriptionInputRef}
+                          type="text" 
+                          required
+                          value={formDesc}
+                          onChange={e => setFormDesc(e.target.value)}
+                          placeholder="Digite a descrição..."
+                          className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium border border-transparent"
+                        />
+                        <button 
+                           type="button"
+                           onClick={() => setCustomInputVisible(false)}
+                           className="absolute right-2 top-2 p-2 text-slate-400 hover:text-slate-600"
+                        >
+                           <X size={16} />
+                        </button>
+                      </div>
+                   )}
+                </div>
+                
+                <div>
+                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Data</label>
+                   <input 
+                     type="date" 
+                     required
+                     value={formDate}
+                     onChange={e => setFormDate(e.target.value)}
+                     className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent"
+                   />
+                </div>
+
                 <button 
                   type="submit"
-                  className={`flex-[2] py-5 rounded-3xl font-bold text-lg transition-all active:scale-95 shadow-xl ${
+                  className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-95 mt-2 text-white ${
                     formType === 'income' 
-                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30 hover:brightness-110' 
-                      : 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:brightness-110'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30' 
+                      : 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30'
                   }`}
                 >
-                  Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
+                  {isEditingId ? 'Salvar Alterações' : 'Confirmar'}
                 </button>
-              </div>
-            </form>
+             </form>
           </div>
         </div>
+      )}
+
+      {detailView !== 'none' && renderTransactionList(
+        detailView === 'today' ? 'Transações de Hoje' : detailView === 'week' ? 'Transações da Semana' : 'Extrato Mensal',
+        stats[detailView].list,
+        true,
+        detailView === 'month' // Group by week only for monthly view
       )}
     </div>
   );

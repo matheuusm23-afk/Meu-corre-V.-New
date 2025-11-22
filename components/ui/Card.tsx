@@ -58,7 +58,7 @@ export const Card: React.FC<CardProps> = ({
       </div>
       
       {value && (
-        <div className={`font-bold tracking-tight drop-shadow-sm ${valueClassName || 'text-3xl'}`}>
+        <div className={`font-bold tracking-tight drop-shadow-sm ${valueClassName || 'text-xl'}`}>
           {value}
         </div>
       )}

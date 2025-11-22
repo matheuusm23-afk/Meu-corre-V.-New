@@ -219,11 +219,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       <div className="grid grid-cols-2 gap-3">
         <Card className={`text-white border-none shadow-lg ${isSurplus ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/20' : 'bg-gradient-to-br from-rose-500 to-rose-700 shadow-rose-500/20'}`}>
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">{isSurplus ? 'Sobra Prevista' : 'Total a Pagar'}</div>
-             <div className="text-2xl font-bold tracking-tight">{formatCurrency(Math.abs(netValue))}</div>
+             <div className="text-xl font-bold tracking-tight">{formatCurrency(Math.abs(netValue))}</div>
         </Card>
         <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white border-none shadow-lg shadow-blue-500/20">
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Receitas Fixas</div>
-             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
+             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
         </Card>
       </div>
 
