@@ -210,6 +210,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             item.title.toLowerCase().includes('card')
          );
 
+         // Calculate remaining balance for installments
+         let remainingBalance = null;
+         if (item.recurrence === 'installments' && item.currentInstallment && item.installments) {
+             const remainingCount = item.installments - (item.currentInstallment - 1);
+             remainingBalance = remainingCount * item.amount;
+         }
+
          return (
          <div 
             key={item.id} 
@@ -259,11 +266,18 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   </div>
                </div>
             </div>
-            <div className="flex items-center gap-2 pl-2 shrink-0">
+            <div className="flex flex-col items-end pl-2 shrink-0">
                <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {formatCurrency(item.amount)}
                </span>
-               <div className="flex items-center -mr-1">
+               
+               {remainingBalance !== null && (
+                   <span className="text-[9px] text-slate-400 font-medium mt-[-2px] whitespace-nowrap">
+                       Resta: {formatCurrency(remainingBalance)}
+                   </span>
+               )}
+
+               <div className="flex items-center -mr-1 mt-1">
                  <button 
                    onClick={(e) => {
                      e.stopPropagation();
@@ -288,6 +302,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
        )})}
     </div>
   );
+
+  // Calculate estimated total for the form
+  const formTotalValue = useMemo(() => {
+      if (recurrence === 'installments' && amount && installments) {
+          return parseFloat(amount) * parseInt(installments);
+      }
+      return 0;
+  }, [recurrence, amount, installments]);
 
   return (
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
@@ -607,6 +629,17 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     onChange={e => setInstallments(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                   />
+                  {formTotalValue > 0 && (
+                      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                          <div className="bg-amber-200 dark:bg-amber-800 p-1 rounded-full">
+                              <TrendingUp size={12} className="text-amber-800 dark:text-amber-200"/>
+                          </div>
+                          <div className="text-xs font-medium">
+                             <span className="opacity-70 mr-1">Total do contrato:</span> 
+                             <span className="font-bold text-sm">{formatCurrency(formTotalValue)}</span>
+                          </div>
+                      </div>
+                  )}
                 </div>
               )}
 
