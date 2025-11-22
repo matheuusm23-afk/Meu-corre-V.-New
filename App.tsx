@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Goals } from './components/Goals';
 import { Settings } from './components/Settings';
 import { FixedExpenses } from './components/FixedExpenses';
 import { BottomNav } from './components/ui/BottomNav';
 import { Transaction, GoalSettings, ViewMode, FixedExpense } from './types';
-import { getBillingPeriodRange, getFixedExpensesForPeriod } from './utils';
 
 type Theme = 'light' | 'dark';
 
@@ -127,7 +127,6 @@ const App: React.FC = () => {
             goalSettings={goalSettings}
             transactions={transactions}
             onUpdateSettings={setGoalSettings}
-            // @ts-ignore
             fixedExpenses={fixedExpenses}
           />
         )}

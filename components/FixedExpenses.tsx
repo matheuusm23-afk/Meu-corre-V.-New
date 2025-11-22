@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
@@ -181,9 +182,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                  <button 
                    onClick={(e) => {
                      e.stopPropagation();
-                     if (window.confirm('Apagar este item?')) {
-                       onDeleteExpense(item.id);
-                     }
+                     onDeleteExpense(item.id);
                    }}
                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
                  >

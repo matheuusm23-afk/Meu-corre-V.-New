@@ -17,11 +17,12 @@ export const formatDate = (dateStr: string | Date) => {
 };
 
 export const formatDateFull = (dateStr: string) => {
+  const d = typeof dateStr === 'string' ? parseDateLocal(dateStr) : dateStr;
   return new Intl.DateTimeFormat('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: 'long',
-  }).format(new Date(dateStr));
+  }).format(d);
 };
 
 // Helper to get ISO date part only YYYY-MM-DD
@@ -152,10 +153,13 @@ export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, st
 };
 
 /**
- * Helper to safely parse YYYY-MM-DD to a Local Date object (00:00:00)
+ * Helper to safely parse YYYY-MM-DD (or ISO) to a Local Date object (00:00:00)
+ * Correctly handles strings to avoid UTC timezone shifts.
  */
-const parseDateLocal = (dateStr: string) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
+export const parseDateLocal = (dateStr: string) => {
+  // Handle full ISO strings by taking the first part
+  const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const [y, m, d] = cleanDateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
 
