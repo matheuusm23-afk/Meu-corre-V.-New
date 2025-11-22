@@ -21,7 +21,12 @@ import {
   Receipt,
   Repeat,
   Clock,
-  CreditCard
+  CreditCard,
+  Lock,
+  Users,
+  Activity,
+  BarChart3,
+  Smartphone
 } from 'lucide-react';
 
 export { 
@@ -45,5 +50,10 @@ export {
   Receipt,
   Repeat,
   Clock,
-  CreditCard
+  CreditCard,
+  Lock,
+  Users,
+  Activity,
+  BarChart3,
+  Smartphone
 };

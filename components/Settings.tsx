@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from './ui/Card';
-import { Trash2, Calendar, Edit2 } from './Icons';
+import { Trash2, Calendar, Edit2, Lock, X, Users, Activity, BarChart3, Smartphone, ChevronRight } from './Icons';
 import { GoalSettings } from '../types';
 
 interface SettingsProps {
@@ -19,6 +19,12 @@ export const Settings: React.FC<SettingsProps> = ({
   currentTheme,
   onToggleTheme
 }) => {
+  const [showDevLogin, setShowDevLogin] = useState(false);
+  const [showDevDashboard, setShowDevDashboard] = useState(false);
+  const [devUser, setDevUser] = useState('');
+  const [devPass, setDevPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const handleClear = () => {
     if (window.confirm('Tem certeza? Isso apagará todas as transações e configurações.')) {
       onClearData();
@@ -42,9 +48,6 @@ export const Settings: React.FC<SettingsProps> = ({
         endDayOfMonth: undefined
       });
     } else {
-      // When setting a manual end day, we don't strictly need to change startDay 
-      // because the utility function will now calculate Start = End + 1 automatically.
-      // However, we can update it in state for consistency if we revert to Auto later.
       onUpdateSettings({
         ...goalSettings,
         endDayOfMonth: parseInt(value)
@@ -52,17 +55,28 @@ export const Settings: React.FC<SettingsProps> = ({
     }
   };
 
+  const handleDevLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (devUser === 'matheuusm23' && devPass === 'm23f07s94') {
+      setShowDevLogin(false);
+      setShowDevDashboard(true);
+      setLoginError('');
+      setDevUser('');
+      setDevPass('');
+    } else {
+      setLoginError('Acesso negado. Credenciais inválidas.');
+    }
+  };
+
   const currentStartDay = goalSettings.startDayOfMonth || 1;
   const isManualMode = goalSettings.endDayOfMonth !== undefined;
   
-  // Determine what to show for Auto label
-  const autoEndDayLabel = currentStartDay === 1 ? 'Último dia do mês' : 'Dia anterior ao início';
-  
   const currentEndDayValue = goalSettings.endDayOfMonth === undefined ? 'auto' : goalSettings.endDayOfMonth.toString();
-
-  // Calculate what the effective start day is in Manual Mode for display
   const manualStartDay = isManualMode ? (goalSettings.endDayOfMonth! + 1) : null;
   const displayManualStartDay = manualStartDay && manualStartDay > 31 ? 1 : manualStartDay;
+
+  // Mock data for Dev Dashboard
+  const audienceData = [45, 62, 58, 81, 65, 92, 88]; // Last 7 days
 
   return (
     <div className="flex flex-col gap-6 pb-24 pt-8 px-2">
@@ -90,7 +104,6 @@ export const Settings: React.FC<SettingsProps> = ({
 
       <Card title="Ciclo Financeiro" icon={<Calendar className="text-amber-500 dark:text-amber-400" />}>
         <div className="mt-2 space-y-4">
-          {/* End Day Selector (Primary in Manual Mode) */}
           <div>
             <label className="block text-slate-500 dark:text-slate-400 text-sm mb-2 font-medium">
               Dia de Fechamento do Mês
@@ -115,7 +128,6 @@ export const Settings: React.FC<SettingsProps> = ({
             </div>
           </div>
 
-          {/* Start Day - Conditional Display */}
           {isManualMode ? (
              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
                <div className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase mb-1">
@@ -171,12 +183,175 @@ export const Settings: React.FC<SettingsProps> = ({
         </div>
       </Card>
 
+      {/* Developer Trigger Card */}
+      <Card 
+        title="Área do Desenvolvedor" 
+        icon={<Lock className="text-slate-400" />}
+        onClick={() => setShowDevLogin(true)}
+        className="active:scale-[0.99] cursor-pointer"
+      >
+        <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Acesso restrito para manutenção e análise.
+            </p>
+            <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
+        </div>
+      </Card>
+
       <Card title="Sobre">
         <div className="text-slate-500 dark:text-slate-400 text-sm space-y-2">
-          <p>Versão 1.3.0</p>
+          <p>Versão 1.3.1</p>
           <p>Feito para ajudar no corre do dia a dia.</p>
         </div>
       </Card>
+
+      {/* Login Modal */}
+      {showDevLogin && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+           <div 
+             className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300"
+             onClick={() => setShowDevLogin(false)}
+           />
+           <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Lock size={20} className="text-amber-500"/>
+                  Acesso Dev
+                </h3>
+                <button onClick={() => setShowDevLogin(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
+                  <X size={20} />
+                </button>
+             </div>
+
+             <form onSubmit={handleDevLogin} className="space-y-4">
+               <div>
+                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Login</label>
+                 <input 
+                   type="text" 
+                   value={devUser}
+                   onChange={(e) => setDevUser(e.target.value)}
+                   className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-amber-500 focus:outline-none dark:text-white font-medium"
+                   placeholder="Usuário"
+                   autoCapitalize="none"
+                 />
+               </div>
+               <div>
+                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Senha</label>
+                 <input 
+                   type="password" 
+                   value={devPass}
+                   onChange={(e) => setDevPass(e.target.value)}
+                   className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-amber-500 focus:outline-none dark:text-white font-medium"
+                   placeholder="••••••••"
+                 />
+               </div>
+               
+               {loginError && (
+                 <p className="text-rose-500 text-xs font-bold text-center bg-rose-50 dark:bg-rose-900/20 p-2 rounded-lg">{loginError}</p>
+               )}
+
+               <button 
+                 type="submit"
+                 className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+               >
+                 Entrar
+               </button>
+             </form>
+           </div>
+        </div>
+      )}
+
+      {/* Developer Dashboard Modal */}
+      {showDevDashboard && (
+        <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col animate-in fade-in duration-300 overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800 p-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Activity className="text-emerald-400" />
+              Dev Analytics
+            </h2>
+            <button 
+              onClick={() => setShowDevDashboard(false)}
+              className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-6 max-w-lg mx-auto w-full">
+             
+             {/* Stats Grid */}
+             <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <Users size={64} className="text-blue-500" />
+                   </div>
+                   <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Acessos Totais</div>
+                   <div className="text-3xl font-bold text-white">14.203</div>
+                   <div className="text-emerald-500 text-xs font-medium flex items-center gap-1 mt-2">
+                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                     App ativo
+                   </div>
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <Smartphone size={64} className="text-purple-500" />
+                   </div>
+                   <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Online Agora</div>
+                   <div className="text-3xl font-bold text-white">42</div>
+                   <div className="text-purple-400 text-xs font-medium mt-2">
+                     Tempo real
+                   </div>
+                </div>
+
+                <div className="col-span-2 bg-slate-900 p-4 rounded-2xl border border-slate-800 relative overflow-hidden flex items-center justify-between">
+                   <div>
+                      <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Cadastros Realizados</div>
+                      <div className="text-3xl font-bold text-white">3.592</div>
+                   </div>
+                   <div className="bg-slate-800 p-3 rounded-xl text-amber-500">
+                      <Users size={24} />
+                   </div>
+                </div>
+             </div>
+
+             {/* Chart */}
+             <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                <div className="flex items-center gap-3 mb-6">
+                   <BarChart3 className="text-blue-500" size={20} />
+                   <h3 className="font-bold text-white">Audiência da Semana</h3>
+                </div>
+                
+                <div className="h-40 flex items-end justify-between gap-2">
+                   {audienceData.map((val, idx) => {
+                     const height = (val / 100) * 100;
+                     return (
+                       <div key={idx} className="w-full flex flex-col items-center gap-2 group">
+                          <div className="relative w-full bg-slate-800 rounded-t-lg overflow-hidden h-32 flex items-end">
+                             <div 
+                               style={{ height: `${height}%` }}
+                               className="w-full bg-blue-600 group-hover:bg-blue-500 transition-colors"
+                             />
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-bold">
+                             {['D','S','T','Q','Q','S','S'][idx]}
+                          </span>
+                       </div>
+                     )
+                   })}
+                </div>
+                <div className="mt-4 flex justify-between text-xs text-slate-500 font-medium pt-4 border-t border-slate-800">
+                   <span>Média diária: 70 acessos</span>
+                   <span className="text-emerald-500">+12% vs semana anterior</span>
+                </div>
+             </div>
+
+             <div className="text-center text-xs text-slate-600 mt-8">
+                Painel Administrativo v1.0 • Acesso Seguro
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
