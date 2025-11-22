@@ -1,10 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Goals } from './components/Goals';
 import { Settings } from './components/Settings';
+import { FixedExpenses } from './components/FixedExpenses';
 import { BottomNav } from './components/ui/BottomNav';
-import { Transaction, GoalSettings, ViewMode } from './types';
+import { Transaction, GoalSettings, ViewMode, FixedExpense } from './types';
+import { getBillingPeriodRange, getFixedExpensesForPeriod } from './utils';
 
 type Theme = 'light' | 'dark';
 
@@ -23,9 +24,10 @@ const App: React.FC = () => {
 
   // Global State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [goalSettings, setGoalSettings] = useState<GoalSettings>({
-    monthlyGoal: 3000, // Default fallback
-    monthlyGoals: {}, // Start empty for specific months
+    monthlyGoal: 3000, 
+    monthlyGoals: {}, 
     daysOff: [],
     startDayOfMonth: 1,
   });
@@ -34,12 +36,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedTx = localStorage.getItem('transactions');
     const savedGoals = localStorage.getItem('goalSettings');
+    const savedFixed = localStorage.getItem('fixedExpenses');
+    
     if (savedTx) setTransactions(JSON.parse(savedTx));
+    if (savedFixed) setFixedExpenses(JSON.parse(savedFixed));
     if (savedGoals) {
       const parsed = JSON.parse(savedGoals);
       setGoalSettings({
         ...parsed,
-        monthlyGoals: parsed.monthlyGoals || {}, // Ensure object exists
+        monthlyGoals: parsed.monthlyGoals || {}, 
         startDayOfMonth: parsed.startDayOfMonth || 1
       });
     }
@@ -52,6 +57,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('goalSettings', JSON.stringify(goalSettings));
   }, [goalSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('fixedExpenses', JSON.stringify(fixedExpenses));
+  }, [fixedExpenses]);
 
   // Theme Effect
   useEffect(() => {
@@ -75,13 +84,22 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTransaction = (id: string) => {
-    if (window.confirm('Apagar essa movimentação?')) {
-      setTransactions(prev => prev.filter(t => t.id !== id));
-    }
+    // Confirmation is handled in the UI components
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleAddFixedExpense = (e: FixedExpense) => {
+    setFixedExpenses(prev => [...prev, e]);
+  };
+
+  const handleDeleteFixedExpense = (id: string) => {
+    // Confirmation is handled in the UI components
+    setFixedExpenses(prev => prev.filter(e => e.id !== id));
   };
 
   const handleClearData = () => {
     setTransactions([]);
+    setFixedExpenses([]);
     setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1 });
     localStorage.clear();
   };
@@ -97,6 +115,7 @@ const App: React.FC = () => {
             onAddTransaction={handleAddTransaction}
             onUpdateTransaction={handleUpdateTransaction}
             onDeleteTransaction={handleDeleteTransaction}
+            onChangeView={setCurrentView}
           />
         )}
         {currentView === 'goals' && (
@@ -104,6 +123,17 @@ const App: React.FC = () => {
             goalSettings={goalSettings}
             transactions={transactions}
             onUpdateSettings={setGoalSettings}
+            // @ts-ignore
+            fixedExpenses={fixedExpenses}
+          />
+        )}
+        {currentView === 'fixed-expenses' && (
+          <FixedExpenses 
+            fixedExpenses={fixedExpenses}
+            startDayOfMonth={goalSettings.startDayOfMonth}
+            endDayOfMonth={goalSettings.endDayOfMonth}
+            onAddExpense={handleAddFixedExpense}
+            onDeleteExpense={handleDeleteFixedExpense}
           />
         )}
         {currentView === 'settings' && (

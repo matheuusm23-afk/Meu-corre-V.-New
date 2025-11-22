@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
-import { Transaction, TransactionType } from '../types';
-import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getStartOfWeek, getCycleStartDate } from '../utils';
+import { Transaction, TransactionType, ViewMode } from '../types';
+import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getStartOfWeek } from '../utils';
 import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar, Fuel } from './Icons';
 import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,12 +13,13 @@ interface DashboardProps {
   onAddTransaction: (t: Transaction) => void;
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
+  onChangeView: (view: ViewMode) => void;
 }
 
 type DetailView = 'none' | 'today' | 'week' | 'month';
 
 const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
-const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação'];
+const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação', 'Aluguel', 'Financiamento', 'Internet'];
 
 const TransactionItem: React.FC<{
   t: Transaction;
@@ -29,7 +30,10 @@ const TransactionItem: React.FC<{
   const isIncome = t.type === 'income';
   
   return (
-    <div className="group flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+    <div 
+      onClick={() => canEdit && onEdit()}
+      className={`group flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all ${canEdit ? 'cursor-pointer active:scale-[0.99]' : ''}`}
+    >
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
           isIncome 
@@ -54,16 +58,16 @@ const TransactionItem: React.FC<{
         </span>
         
         {canEdit && (
-          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity -mr-2">
+          <div className="flex items-center -mr-2">
              <button 
                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-               className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
+               className="p-2 text-slate-300 hover:text-amber-500 transition-colors"
              >
                <Edit2 size={16} />
              </button>
              <button 
                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-               className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+               className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
              >
                <Trash2 size={16} />
              </button>
@@ -80,28 +84,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   endDayOfMonth,
   onAddTransaction, 
   onUpdateTransaction, 
-  onDeleteTransaction 
+  onDeleteTransaction,
+  onChangeView
 }) => {
   const [detailView, setDetailView] = useState<DetailView>('none');
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
   
-  // FAB State
   const [isFabOpen, setIsFabOpen] = useState(false);
   
-  // Modal State for Add/Edit
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<TransactionType>('income');
   const [formAmount, setFormAmount] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formDate, setFormDate] = useState(getISODate(new Date()));
   
-  // Control visibility of manual description input
   const [customInputVisible, setCustomInputVisible] = useState(false);
 
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const today = new Date();
 
-  // Calculations
   const stats = useMemo(() => {
     const calc = (filterFn: (t: Transaction) => boolean) => {
       const filtered = transactions.filter(filterFn);
@@ -113,19 +114,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return {
       today: calc(t => isSameDay(new Date(t.date), today)),
       week: calc(t => isSameWeek(new Date(t.date), today)),
-      // Use custom billing period logic for Month
       month: calc(t => isDateInBillingPeriod(new Date(t.date), today, startDayOfMonth, endDayOfMonth)),
     };
   }, [transactions, startDayOfMonth, endDayOfMonth]);
 
-  // Calculate Fuel Expenses for the Month
   const fuelExpensesMonth = useMemo(() => {
     return stats.month.list
       .filter(t => t.type === 'expense' && t.description === 'Combustível')
       .reduce((acc, t) => acc + t.amount, 0);
   }, [stats.month.list]);
 
-  // Weekly Chart Data Calculation
   const weeklyChartData = useMemo(() => {
     const startOfWeek = getStartOfWeek(new Date());
     const days = [];
@@ -148,10 +146,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
     
     const maxVal = Math.max(...days.map(d => Math.abs(d.balance)));
-    return { days, maxVal: maxVal === 0 ? 1 : maxVal }; // Prevent division by zero
+    return { days, maxVal: maxVal === 0 ? 1 : maxVal };
   }, [transactions]);
 
-  // Get label for current billing period
   const billingPeriodLabel = useMemo(() => {
     const { startDate, endDate } = getBillingPeriodRange(today, startDayOfMonth, endDayOfMonth);
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -159,7 +156,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [startDayOfMonth, endDayOfMonth]);
 
   const handleOpenForm = (type: TransactionType, transactionToEdit?: Transaction) => {
-    setIsFabOpen(false); // Close FAB if open
+    setIsFabOpen(false);
     if (transactionToEdit) {
       setFormType(transactionToEdit.type);
       setFormAmount(transactionToEdit.amount.toString());
@@ -167,7 +164,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setFormDate(transactionToEdit.date.split('T')[0]);
       setIsEditingId(transactionToEdit.id);
       
-      // Determine if we should show the text input
       if (transactionToEdit.type === 'expense') {
         setCustomInputVisible(!EXPENSE_CATEGORIES.includes(transactionToEdit.description));
       } else {
@@ -217,8 +213,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setShowForm(false);
   };
 
-  // --- Sub-Views ---
-
   const renderTransactionList = (
     title: string, 
     list: Transaction[], 
@@ -249,7 +243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const end = new Date(start);
         end.setDate(end.getDate() + 6);
         const label = `${formatDate(start)} até ${formatDate(end)}`;
-        const canEditThisGroup = !isCurrentWeek; 
+        const canEditThisGroup = allowEdit;
 
         return (
           <div key={weekStartStr} className="mb-8">
@@ -264,7 +258,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   t={t} 
                   canEdit={canEditThisGroup} 
                   onEdit={() => handleOpenForm(t.type, t)}
-                  onDelete={() => onDeleteTransaction(t.id)}
+                  onDelete={() => {
+                    if (window.confirm('Apagar essa movimentação?')) {
+                      onDeleteTransaction(t.id);
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -288,7 +286,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 t={t} 
                 canEdit={allowEdit} 
                 onEdit={() => handleOpenForm(t.type, t)}
-                onDelete={() => onDeleteTransaction(t.id)}
+                onDelete={() => {
+                  if (window.confirm('Apagar essa movimentação?')) {
+                    onDeleteTransaction(t.id);
+                  }
+                }}
               />
             ))
           )}
@@ -311,8 +313,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     );
   };
 
-  // --- Main Render ---
-
   return (
     <div className="flex flex-col gap-6 pb-32">
       <header className="pt-8 pb-2 px-2 flex items-center justify-between">
@@ -323,7 +323,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </header>
 
-      {/* Modern Weekly Chart */}
       <div className="px-2 mb-12 relative z-0">
         <div className="flex justify-between items-end mb-8">
           <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
@@ -338,7 +337,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const isPositive = day.balance >= 0;
             const isZero = day.balance === 0;
             
-            // Modern Gradients & Glows
             const barGradient = isZero 
               ? 'bg-slate-200 dark:bg-slate-800' 
               : isPositive 
@@ -353,16 +351,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             return (
               <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
-                
-                {/* Value Label - Always Visible */}
                 <div className={`absolute -top-8 text-[10px] font-bold z-10 transition-all duration-300 ${textColor}`}>
                   {isZero ? '' : Math.round(day.balance)}
                 </div>
-                
-                {/* Background Track (Pill shape) */}
                 <div className="w-full h-full absolute bottom-0 bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl -z-10 border border-slate-200/30 dark:border-slate-700/30"></div>
-
-                {/* The Bar */}
                 <div 
                   className={`w-full rounded-2xl transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) relative ${barGradient} ${!isZero ? 'shadow-lg' : ''}`}
                   style={{ 
@@ -370,8 +362,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     opacity: isZero ? 0.5 : 1 
                   }}
                 ></div>
-
-                {/* Day Label */}
                 <div className={`mt-3 text-[10px] sm:text-xs font-bold uppercase transition-colors ${day.isToday ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
                   {day.dayName}
                 </div>
@@ -381,9 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Cards container */}
       <div className="flex flex-col gap-4 relative z-10">
-        {/* Row for Day and Week (Side by Side) */}
         <div className="grid grid-cols-2 gap-4">
           <Card 
             title="Saldo do Dia" 
@@ -392,25 +380,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
             icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
             variant="default"
             onClick={() => setDetailView('today')}
-            // Reduce font size for split cards to fit larger numbers (e.g. 1.000,00)
             valueClassName="text-xl sm:text-2xl"
-            // Ensure border is visible in dark mode (slate-800 base + emerald override)
             className="border-l-[6px] border-l-emerald-500 dark:border-l-emerald-500"
           />
-
           <Card 
             title="Saldo da Semana" 
             value={formatCurrency(stats.week.balance)}
             subtitle="Ver detalhes"
             icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
             onClick={() => setDetailView('week')}
-            // Reduce font size for split cards
             valueClassName="text-xl sm:text-2xl"
             className="border-l-[6px] border-l-blue-500 dark:border-l-blue-500"
           />
         </div>
-
-        {/* Full width Month Card */}
         <Card 
           title="Saldo do Mês" 
           value={formatCurrency(stats.month.balance)}
@@ -419,8 +401,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onClick={() => setDetailView('month')}
           className="border-l-[6px] border-l-amber-500 dark:border-l-amber-500"
         />
-
-        {/* Full width Fuel Card */}
         <Card 
           title="Combustível"
           value={formatCurrency(Math.abs(fuelExpensesMonth))}
@@ -430,12 +410,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
       </div>
 
-      {/* Detail Views (Modals) */}
       {detailView === 'today' && renderTransactionList('Movimentações de Hoje', stats.today.list, true)}
       {detailView === 'week' && renderTransactionList('Movimentações da Semana', stats.week.list, true)}
-      {detailView === 'month' && renderTransactionList(`Ciclo ${billingPeriodLabel}`, stats.month.list, false, true)}
+      {detailView === 'month' && renderTransactionList(`Ciclo ${billingPeriodLabel}`, stats.month.list, true, true)}
 
-      {/* FAB Backdrop */}
       {isFabOpen && (
         <div 
           className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
@@ -443,10 +421,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
       )}
 
-      {/* Floating Action Button Group */}
       <div className="fixed bottom-32 right-6 z-50 flex flex-col items-end gap-4">
-        {/* Expense Action */}
-        <div className={`flex items-center gap-4 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        <div className={`flex items-center gap-4 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
           <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
             Despesa
           </span>
@@ -457,9 +433,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <TrendingDown size={24} />
           </button>
         </div>
-
-        {/* Income Action */}
-        <div className={`flex items-center gap-4 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        <div className={`flex items-center gap-4 transition-all duration-300 delay-100 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
           <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
             Receita
           </span>
@@ -470,8 +444,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <TrendingUp size={24} />
           </button>
         </div>
-
-        {/* Main Toggle Button */}
         <button 
           onClick={() => setIsFabOpen(!isFabOpen)}
           className={`w-16 h-16 rounded-[1.25rem] shadow-2xl shadow-amber-500/30 flex items-center justify-center text-white transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950 ${
@@ -482,7 +454,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </button>
       </div>
 
-      {/* Add/Edit Form Modal - Modernized */}
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
           <div 
@@ -532,7 +503,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 />
               </div>
 
-              {/* Quick Actions */}
               <div className="py-1">
                 <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">
                    {formType === 'income' ? 'Origem' : 'Categoria'}
@@ -545,13 +515,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         key={item}
                         type="button"
                         onClick={() => handleQuickAction(item)}
-                        className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 ${
+                        className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 whitespace-nowrap overflow-hidden text-ellipsis ${
                           isActive
                             ? formType === 'income' 
                               ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
                               : 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 ring-2 ring-rose-500 ring-offset-2 dark:ring-offset-slate-900'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                         }`}
+                        title={item}
                       >
                         {item}
                       </button>
@@ -585,16 +556,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               )}
 
-              <button 
-                type="submit"
-                className={`w-full py-5 rounded-3xl font-bold text-lg mt-4 transition-all active:scale-95 shadow-xl ${
-                  formType === 'income' 
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30 hover:brightness-110' 
-                    : 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:brightness-110'
-                }`}
-              >
-                Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
-              </button>
+              <div className="flex gap-3 mt-4">
+                {isEditingId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Apagar essa movimentação?')) {
+                         onDeleteTransaction(isEditingId);
+                         setShowForm(false);
+                      }
+                    }}
+                    className="flex-1 py-5 rounded-3xl font-bold text-lg bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 transition-all active:scale-95 hover:bg-rose-200 dark:hover:bg-rose-900/50"
+                  >
+                    Excluir
+                  </button>
+                )}
+                <button 
+                  type="submit"
+                  className={`flex-[2] py-5 rounded-3xl font-bold text-lg transition-all active:scale-95 shadow-xl ${
+                    formType === 'income' 
+                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30 hover:brightness-110' 
+                      : 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:brightness-110'
+                  }`}
+                >
+                  Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

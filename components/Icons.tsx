@@ -15,7 +15,11 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Fuel
+  Fuel,
+  ScrollText,
+  Receipt,
+  Repeat,
+  Clock
 } from 'lucide-react';
 
 export { 
@@ -34,5 +38,9 @@ export {
   X,
   CheckCircle2,
   AlertCircle,
-  Fuel
+  Fuel,
+  ScrollText,
+  Receipt,
+  Repeat,
+  Clock
 };

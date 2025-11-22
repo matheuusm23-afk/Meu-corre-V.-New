@@ -1,16 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { GoalSettings, Transaction } from '../types';
-import { formatCurrency, getISODate, getBillingPeriodRange } from '../utils';
+import { GoalSettings, Transaction, FixedExpense } from '../types';
+import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight } from './Icons';
+import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle } from './Icons';
 
 interface GoalsProps {
   goalSettings: GoalSettings;
   transactions: Transaction[];
   onUpdateSettings: (settings: GoalSettings) => void;
+  fixedExpenses: FixedExpense[];
 }
 
-export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpdateSettings }) => {
+export const Goals: React.FC<GoalsProps> = ({ 
+  goalSettings, 
+  transactions, 
+  onUpdateSettings,
+  fixedExpenses
+}) => {
   const [viewDate, setViewDate] = useState(new Date());
   
   const today = new Date();
@@ -31,8 +37,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
 
   const isFutureView = startDate > currentCycleEnd;
 
-  const cycleKey = getISODate(startDate);
-  const cycleGoal = goalSettings.monthlyGoals?.[cycleKey] || 0;
+  // Calculate Cycle Goal based on Fixed Expenses for the viewed period
+  const cycleGoal = useMemo(() => {
+    const relevantExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    return relevantExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  }, [fixedExpenses, startDate, endDate]);
 
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -118,17 +127,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     helperText = 'Ciclo encerrado';
   }
 
-  const handleGoalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-    onUpdateSettings({
-      ...goalSettings,
-      monthlyGoals: {
-        ...(goalSettings.monthlyGoals || {}),
-        [cycleKey]: val
-      }
-    });
-  };
-
   const handleDayClick = (date: Date) => {
     const dateStr = getISODate(date);
     if (isCurrentCycleView && date < new Date(new Date().setHours(0,0,0,0))) return;
@@ -206,16 +204,15 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
         </button>
       </div>
 
-      <Card title="Meta do Mês" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
+      <Card title="Meta do Mês (Contas Fixas)" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
         <div className="flex items-center gap-3 mt-2">
-          <span className="text-2xl text-slate-500 font-bold">R$</span>
-          <input 
-            type="number" 
-            value={cycleGoal === 0 ? '' : cycleGoal} 
-            onChange={handleGoalChange}
-            placeholder="0,00"
-            className="bg-transparent text-4xl font-bold text-white w-full focus:outline-none placeholder:text-slate-700"
-          />
+          <div className="text-4xl font-bold text-white w-full">
+            {formatCurrency(cycleGoal)}
+          </div>
+        </div>
+        <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-300 bg-white/10 p-2 rounded-lg">
+           <AlertCircle size={12} className="shrink-0 mt-0.5" />
+           <p>Valor definido automaticamente pelo total de Contas Fixas deste ciclo.</p>
         </div>
       </Card>
 

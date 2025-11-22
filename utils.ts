@@ -1,4 +1,6 @@
 
+import { FixedExpense } from './types';
+
 export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -147,4 +149,58 @@ export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, st
   const { startDate, endDate } = getBillingPeriodRange(referenceDate, startDay, endDay);
   const check = new Date(dateToCheck);
   return check.getTime() >= startDate.getTime() && check.getTime() <= endDate.getTime();
+};
+
+/**
+ * Helper to safely parse YYYY-MM-DD to a Local Date object (00:00:00)
+ */
+const parseDateLocal = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * Returns the list of fixed expenses that are active for a given billing cycle period.
+ */
+export const getFixedExpensesForPeriod = (
+  expenses: FixedExpense[], 
+  periodStart: Date, 
+  periodEnd: Date
+) => {
+  return expenses.map(expense => {
+    // Use local parsing to ensure YYYY-MM-DD matches the local date period start/end
+    const startDate = parseDateLocal(expense.startDate);
+    
+    // If expense starts after this period ends, it doesn't count
+    if (startDate > periodEnd) return null;
+
+    if (expense.recurrence === 'single') {
+      // For single expenses, the startDate acts as the occurrence date.
+      // We check if this date falls strictly within the current billing period.
+      // Using getTime() for safe comparison
+      if (startDate.getTime() >= periodStart.getTime() && startDate.getTime() <= periodEnd.getTime()) {
+          return { ...expense, currentInstallment: null };
+      }
+      return null;
+    }
+
+    if (expense.recurrence === 'monthly') {
+      return { ...expense, currentInstallment: null };
+    }
+
+    if (expense.recurrence === 'installments' && expense.installments) {
+      // Calculate month difference to see if it's still valid
+      // Simple approximation using year/month math
+      const startMonthIndex = startDate.getFullYear() * 12 + startDate.getMonth();
+      const currentMonthIndex = periodStart.getFullYear() * 12 + periodStart.getMonth();
+      
+      const monthDiff = currentMonthIndex - startMonthIndex;
+      
+      // Note: monthDiff 0 is the first installment (1/X)
+      if (monthDiff >= 0 && monthDiff < expense.installments) {
+        return { ...expense, currentInstallment: monthDiff + 1 };
+      }
+    }
+    return null;
+  }).filter((e): e is (FixedExpense & { currentInstallment: number | null }) => e !== null);
 };

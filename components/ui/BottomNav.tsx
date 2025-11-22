@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Target, Settings } from '../Icons';
+import { Home, Target, Settings, ScrollText } from '../Icons';
 import { ViewMode } from '../../types';
 
 interface BottomNavProps {
@@ -10,6 +10,7 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onChangeView }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Início' },
+    { id: 'fixed-expenses', icon: ScrollText, label: 'Fixas' },
     { id: 'goals', icon: Target, label: 'Metas' },
     { id: 'settings', icon: Settings, label: 'Ajustes' },
   ] as const;

@@ -1,4 +1,5 @@
 
+
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
@@ -9,15 +10,27 @@ export interface Transaction {
   type: TransactionType;
 }
 
+export type RecurrenceType = 'monthly' | 'installments' | 'single';
+
+export interface FixedExpense {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  startDate: string; // ISO Date (YYYY-MM-DD) indicating when this expense starts
+  recurrence: RecurrenceType;
+  installments?: number; // Total number of installments if recurrence is 'installments'
+}
+
 export interface GoalSettings {
-  monthlyGoal: number; // Deprecated, kept for migration
-  monthlyGoals?: Record<string, number>; // Key: ISO Date of Cycle Start (YYYY-MM-DD), Value: Goal Amount
+  monthlyGoal: number; // Deprecated in favor of dynamic calculation, but kept for structure
+  monthlyGoals?: Record<string, number>; // Deprecated, kept for migration
   daysOff: string[]; // Array of ISO date strings (YYYY-MM-DD)
   startDayOfMonth: number; // 1-31
   endDayOfMonth?: number; // 1-31, or undefined for automatic (startDay - 1)
 }
 
-export type ViewMode = 'home' | 'goals' | 'settings';
+export type ViewMode = 'home' | 'goals' | 'settings' | 'fixed-expenses';
 
 export interface SummaryData {
   income: number;
