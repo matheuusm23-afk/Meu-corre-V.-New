@@ -10,8 +10,8 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onChangeView }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Início' },
-    { id: 'fixed-expenses', icon: ScrollText, label: 'Fixas' },
     { id: 'goals', icon: Target, label: 'Metas' },
+    { id: 'fixed-expenses', icon: ScrollText, label: 'Fixas' },
     { id: 'settings', icon: Settings, label: 'Ajustes' },
   ] as const;
 

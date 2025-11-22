@@ -63,6 +63,10 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const totalIncome = activeIncomes.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
+  // Net calculation: Expenses - Income
+  const netValue = totalExpenses - totalIncome;
+  const isSurplus = netValue < 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !title) return;
@@ -175,11 +179,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-gradient-to-br from-rose-500 to-rose-700 text-white border-none shadow-lg shadow-rose-500/20">
-             <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Despesas Fixas</div>
-             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+        <Card className={`text-white border-none shadow-lg ${isSurplus ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-emerald-500/20' : 'bg-gradient-to-br from-rose-500 to-rose-700 shadow-rose-500/20'}`}>
+             <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">{isSurplus ? 'Sobra Prevista' : 'Total a Pagar'}</div>
+             <div className="text-2xl font-bold tracking-tight">{formatCurrency(Math.abs(netValue))}</div>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-none shadow-lg shadow-emerald-500/20">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white border-none shadow-lg shadow-blue-500/20">
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Receitas Fixas</div>
              <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
         </Card>

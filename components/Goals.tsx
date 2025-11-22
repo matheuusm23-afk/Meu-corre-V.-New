@@ -37,13 +37,17 @@ export const Goals: React.FC<GoalsProps> = ({
 
   const isFutureView = startDate > currentCycleEnd;
 
-  // Calculate Cycle Goal based on Fixed Expenses for the viewed period
+  // Calculate Cycle Goal based on Fixed Expenses MINUS Fixed Income for the viewed period
   const cycleGoal = useMemo(() => {
     const relevantExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
-    // Filter to only include expenses (undefined type implies expense for legacy data)
-    return relevantExpenses
+    const totalExpenses = relevantExpenses
       .filter(e => e.type !== 'income')
       .reduce((acc, curr) => acc + curr.amount, 0);
+    const totalIncome = relevantExpenses
+      .filter(e => e.type === 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    return Math.max(0, totalExpenses - totalIncome);
   }, [fixedExpenses, startDate, endDate]);
 
   const periodLabel = useMemo(() => {
@@ -78,7 +82,7 @@ export const Goals: React.FC<GoalsProps> = ({
   const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
   const progressPercent = cycleGoal > 0 
     ? Math.max(0, Math.min(100, (currentPeriodBalance / cycleGoal) * 100))
-    : 0;
+    : (currentPeriodBalance >= 0 ? 100 : 0);
 
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
@@ -215,7 +219,7 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
         <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-300 bg-white/10 p-2 rounded-lg">
            <AlertCircle size={12} className="shrink-0 mt-0.5" />
-           <p>Valor definido automaticamente pelo total de Contas Fixas deste ciclo.</p>
+           <p>Valor definido automaticamente pelo total de Contas Fixas menos Receitas Fixas.</p>
         </div>
       </Card>
 
