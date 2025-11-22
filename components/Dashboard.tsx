@@ -104,10 +104,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // 6. Balances
   
   // Today's Balance (Strictly today)
+  // Modified: Does NOT subtract fuel expenses from daily balance
   const todayBalance = useMemo(() => {
+    const fuelKeys = ['combustível', 'gasolina', 'etanol', 'diesel', 'abastec', 'posto'];
     return transactions
       .filter(t => isSameDay(parseDateLocal(t.date), today))
-      .reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+      .reduce((acc, t) => {
+        if (t.type === 'income') {
+          return acc + t.amount;
+        } else {
+          // Check if it's a fuel expense
+          const isFuel = fuelKeys.some(k => t.description.toLowerCase().includes(k));
+          if (isFuel) {
+            return acc; // Ignore fuel in daily balance
+          }
+          return acc - t.amount;
+        }
+      }, 0);
   }, [transactions, today]);
 
   // Week's Balance (Current Week)
@@ -118,6 +131,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [transactions, today]);
 
   // Month Balance (Based on selected Billing Cycle)
+  // Includes ALL expenses (fuel included)
   const monthBalance = useMemo(() => {
     return currentPeriodTransactions.reduce((acc, t) => {
       return t.type === 'income' ? acc + t.amount : acc - t.amount;
