@@ -8,6 +8,7 @@ interface CardProps {
   icon?: React.ReactNode;
   variant?: 'default' | 'primary' | 'success' | 'danger';
   className?: string;
+  valueClassName?: string;
   children?: React.ReactNode;
 }
 
@@ -19,6 +20,7 @@ export const Card: React.FC<CardProps> = ({
   icon, 
   variant = 'default',
   className = '',
+  valueClassName,
   children
 }) => {
   // Base styles: Glassmorphism, Smooth borders, Modern shadows
@@ -55,7 +57,11 @@ export const Card: React.FC<CardProps> = ({
         )}
       </div>
       
-      {value && <div className="text-3xl font-bold tracking-tight drop-shadow-sm">{value}</div>}
+      {value && (
+        <div className={`font-bold tracking-tight drop-shadow-sm ${valueClassName || 'text-3xl'}`}>
+          {value}
+        </div>
+      )}
       {subtitle && (
         <div className={`text-xs mt-1 font-medium ${variant === 'default' ? 'text-slate-400 dark:text-slate-500' : 'text-white/70'}`}>
           {subtitle}

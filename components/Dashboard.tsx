@@ -20,6 +20,60 @@ type DetailView = 'none' | 'today' | 'week' | 'month';
 const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
 const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação'];
 
+const TransactionItem: React.FC<{
+  t: Transaction;
+  canEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}> = ({ t, canEdit, onEdit, onDelete }) => {
+  const isIncome = t.type === 'income';
+  
+  return (
+    <div className="group flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+          isIncome 
+            ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
+            : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+        }`}>
+          {isIncome ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+        </div>
+        <div>
+          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t.description}</p>
+          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
+             {new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(t.date))}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className={`font-bold text-sm whitespace-nowrap ${
+          isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+        }`}>
+          {isIncome ? '+' : '-'} {formatCurrency(t.amount)}
+        </span>
+        
+        {canEdit && (
+          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity -mr-2">
+             <button 
+               onClick={(e) => { e.stopPropagation(); onEdit(); }}
+               className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
+             >
+               <Edit2 size={16} />
+             </button>
+             <button 
+               onClick={(e) => { e.stopPropagation(); onDelete(); }}
+               className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+             >
+               <Trash2 size={16} />
+             </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
   startDayOfMonth = 1,
@@ -270,7 +324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </header>
 
       {/* Modern Weekly Chart */}
-      <div className="px-2 mb-4">
+      <div className="px-2 mb-12 relative z-0">
         <div className="flex justify-between items-end mb-8">
           <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
             <TrendingUp size={14} />
@@ -328,15 +382,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Cards container */}
-      <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-1 gap-5">
+      <div className="flex flex-col gap-4 relative z-10">
+        {/* Row for Day and Week (Side by Side) */}
+        <div className="grid grid-cols-2 gap-4">
           <Card 
             title="Saldo do Dia" 
             value={formatCurrency(stats.today.balance)} 
-            subtitle={`${stats.today.list.length} transações hoje`}
+            subtitle={`${stats.today.list.length} hoje`}
             icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
             variant="default"
             onClick={() => setDetailView('today')}
+            // Reduce font size for split cards to fit larger numbers (e.g. 1.000,00)
+            valueClassName="text-xl sm:text-2xl"
             // Ensure border is visible in dark mode (slate-800 base + emerald override)
             className="border-l-[6px] border-l-emerald-500 dark:border-l-emerald-500"
           />
@@ -347,19 +404,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
             subtitle="Ver detalhes"
             icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
             onClick={() => setDetailView('week')}
+            // Reduce font size for split cards
+            valueClassName="text-xl sm:text-2xl"
             className="border-l-[6px] border-l-blue-500 dark:border-l-blue-500"
-          />
-
-          <Card 
-            title="Saldo do Mês" 
-            value={formatCurrency(stats.month.balance)}
-            subtitle={`Ciclo: ${billingPeriodLabel}`}
-            icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
-            onClick={() => setDetailView('month')}
-            className="border-l-[6px] border-l-amber-500 dark:border-l-amber-500"
           />
         </div>
 
+        {/* Full width Month Card */}
+        <Card 
+          title="Saldo do Mês" 
+          value={formatCurrency(stats.month.balance)}
+          subtitle={`Ciclo: ${billingPeriodLabel}`}
+          icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
+          onClick={() => setDetailView('month')}
+          className="border-l-[6px] border-l-amber-500 dark:border-l-amber-500"
+        />
+
+        {/* Full width Fuel Card */}
         <Card 
           title="Combustível"
           value={formatCurrency(Math.abs(fuelExpensesMonth))}
@@ -541,39 +602,3 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
-
-interface TransactionItemProps {
-  t: Transaction;
-  canEdit: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-const TransactionItem: React.FC<TransactionItemProps> = ({ t, canEdit, onEdit, onDelete }) => (
-  <div className="group bg-white dark:bg-slate-900/80 backdrop-blur-sm p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex justify-between items-center shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.99]">
-    <div className="flex gap-4 items-center">
-      <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center shadow-sm ${
-        t.type === 'income' 
-          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'
-      }`}>
-        {t.type === 'income' ? <TrendingUp size={22} strokeWidth={2.5} /> : <TrendingDown size={22} strokeWidth={2.5} />}
-      </div>
-      <div>
-        <div className="font-bold text-slate-800 dark:text-slate-100 text-base">{t.description}</div>
-        <div className="text-xs text-slate-400 font-medium mt-0.5">{formatDate(t.date)}</div>
-      </div>
-    </div>
-    <div className="text-right">
-      <div className={`font-bold text-lg tracking-tight ${t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-        {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
-      </div>
-      {canEdit && (
-        <div className="flex gap-1 justify-end mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-colors"><Edit2 size={16} /></button>
-          <button onClick={onDelete} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"><Trash2 size={16} /></button>
-        </div>
-      )}
-    </div>
-  </div>
-);
