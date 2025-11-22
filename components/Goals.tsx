@@ -40,7 +40,10 @@ export const Goals: React.FC<GoalsProps> = ({
   // Calculate Cycle Goal based on Fixed Expenses for the viewed period
   const cycleGoal = useMemo(() => {
     const relevantExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
-    return relevantExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+    // Filter to only include expenses (undefined type implies expense for legacy data)
+    return relevantExpenses
+      .filter(e => e.type !== 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
   }, [fixedExpenses, startDate, endDate]);
 
   const periodLabel = useMemo(() => {

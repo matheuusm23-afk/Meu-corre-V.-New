@@ -20,6 +20,7 @@ export interface FixedExpense {
   startDate: string; // ISO Date (YYYY-MM-DD) indicating when this expense starts
   recurrence: RecurrenceType;
   installments?: number; // Total number of installments if recurrence is 'installments'
+  type?: 'income' | 'expense'; // Added to support fixed incomes. Defaults to 'expense' if undefined.
 }
 
 export interface GoalSettings {

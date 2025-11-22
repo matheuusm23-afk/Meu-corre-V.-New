@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -13,7 +13,8 @@ interface FixedExpensesProps {
   onDeleteExpense: (id: string) => void;
 }
 
-const FIXED_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Cartão'];
+const EXPENSE_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Cartão'];
+const INCOME_CATEGORIES = ['Salário', 'Aposentadoria', 'Aluguel', 'Benefício', 'Extra'];
 
 export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   fixedExpenses,
@@ -25,6 +26,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   
+  // Form State
+  const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
@@ -50,11 +53,15 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setViewDate(newDate);
   };
 
-  const activeExpenses = useMemo(() => {
+  const activeItems = useMemo(() => {
     return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
   }, [fixedExpenses, startDate, endDate]);
 
-  const totalAmount = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const activeIncomes = activeItems.filter(i => i.type === 'income');
+  const activeExpenses = activeItems.filter(i => i.type !== 'income');
+
+  const totalIncome = activeIncomes.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,25 +74,91 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       category: title,
       recurrence,
       startDate: getISODate(startDate),
-      installments: recurrence === 'installments' ? parseInt(installments) : undefined
+      installments: recurrence === 'installments' ? parseInt(installments) : undefined,
+      type: formType
     };
 
     onAddExpense(newExpense);
     setShowForm(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setTitle('');
     setAmount('');
     setRecurrence('monthly');
+    setFormType('expense');
   };
 
   const handleQuickCategory = (cat: string) => {
     setTitle(cat);
   };
 
+  const openForm = (type: 'income' | 'expense') => {
+    setFormType(type);
+    setShowForm(true);
+  };
+
+  const renderList = (items: typeof activeItems, isIncome: boolean) => (
+    <div className="space-y-3">
+       {items.map(item => (
+         <div key={item.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-3">
+               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                 isIncome 
+                  ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
+                  : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+               }`}>
+                  {isIncome ? <TrendingUp size={18} /> : <Receipt size={18} />}
+               </div>
+               <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {item.recurrence === 'installments' && item.currentInstallment && (
+                      <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md">
+                        {item.currentInstallment}/{item.installments}
+                      </span>
+                    )}
+                    {item.recurrence === 'single' && (
+                       <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-md uppercase">
+                          Única
+                       </span>
+                    )}
+                    {item.recurrence === 'monthly' && (
+                       <span className="text-[10px] text-slate-400 font-medium uppercase">
+                          Mensal
+                       </span>
+                    )}
+                     <span className="text-[10px] text-slate-400 font-medium uppercase">
+                        {item.recurrence === 'installments' ? 'Parcelado' : ''}
+                     </span>
+                  </div>
+               </div>
+            </div>
+            <div className="flex items-center gap-3">
+               <span className={`font-bold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                 {formatCurrency(item.amount)}
+               </span>
+               <button 
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   onDeleteExpense(item.id);
+                 }}
+                 className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+               >
+                 <Trash2 size={16} />
+               </button>
+            </div>
+         </div>
+       ))}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
       <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Contas Fixas 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Planeje seus boletos e contas.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Fixas & Recorrentes 🧾</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas e receitas do mês.</p>
       </header>
 
       <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
@@ -101,85 +174,51 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         </button>
       </div>
 
-      <Card 
-        title="Total de Contas" 
-        className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20"
-      >
-         <div className="flex items-center gap-4 mt-2">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
-               <ScrollText className="text-white" size={24} />
-            </div>
-            <div>
-                <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalAmount)}</div>
-                <div className="text-xs text-white/60 font-medium">Este valor será sua meta mensal</div>
-            </div>
-         </div>
-      </Card>
-
-      <div className="space-y-3">
-         <div className="flex justify-between items-center px-2">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Neste Ciclo</h3>
-            <button 
-              onClick={() => setShowForm(true)}
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors"
-            >
-              <Plus size={14} />
-              Adicionar Conta
-            </button>
-         </div>
-
-         {activeExpenses.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 dark:text-slate-600">
-              <Receipt size={48} className="mx-auto mb-4 opacity-20" />
-              <p>Nenhuma conta fixa para este mês.</p>
-            </div>
-         ) : (
-           activeExpenses.map(expense => (
-             <div key={expense.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
-                      <Receipt size={18} />
-                   </div>
-                   <div>
-                      <p className="font-bold text-slate-900 dark:text-slate-100">{expense.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {expense.recurrence === 'installments' && expense.currentInstallment && (
-                          <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md">
-                            {expense.currentInstallment}/{expense.installments}
-                          </span>
-                        )}
-                        {expense.recurrence === 'single' && (
-                           <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-md uppercase">
-                              Única
-                           </span>
-                        )}
-                        {expense.recurrence === 'monthly' && (
-                           <span className="text-[10px] text-slate-400 font-medium uppercase">
-                              Mensal
-                           </span>
-                        )}
-                         <span className="text-[10px] text-slate-400 font-medium uppercase">
-                            {expense.recurrence === 'installments' ? 'Parcelado' : ''}
-                         </span>
-                      </div>
-                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                   <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(expense.amount)}</span>
-                   <button 
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       onDeleteExpense(expense.id);
-                     }}
-                     className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                   >
-                     <Trash2 size={16} />
-                   </button>
-                </div>
-             </div>
-           ))
-         )}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="bg-gradient-to-br from-rose-500 to-rose-700 text-white border-none shadow-lg shadow-rose-500/20">
+             <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Despesas Fixas</div>
+             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-none shadow-lg shadow-emerald-500/20">
+             <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Receitas Fixas</div>
+             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalIncome)}</div>
+        </Card>
       </div>
+
+      {/* Incomes Section */}
+      {activeIncomes.length > 0 && (
+        <div className="space-y-3">
+           <div className="flex justify-between items-center px-2 mt-2">
+              <h3 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp size={14} />
+                Entradas Previstas
+              </h3>
+           </div>
+           {renderList(activeIncomes, true)}
+        </div>
+      )}
+
+      {/* Expenses Section */}
+      <div className="space-y-3">
+         <div className="flex justify-between items-center px-2 mt-2">
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <Receipt size={14} />
+              Contas do Mês
+            </h3>
+            {activeExpenses.length === 0 && (
+              <span className="text-[10px] text-slate-400">Nenhuma conta</span>
+            )}
+         </div>
+         {activeExpenses.length > 0 ? renderList(activeExpenses, false) : null}
+      </div>
+
+      {/* Floating Add Button */}
+      <button 
+        onClick={() => openForm('expense')}
+        className="fixed bottom-32 right-6 z-50 w-16 h-16 bg-blue-600 rounded-[1.25rem] shadow-2xl shadow-blue-500/30 flex items-center justify-center text-white transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950 hover:bg-blue-500"
+      >
+        <Plus size={32} strokeWidth={2.5} />
+      </button>
 
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
@@ -190,15 +229,44 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
           
           <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Nova Conta Fixa</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Adicionar Item</h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {/* Type Toggle */}
+              <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex relative">
+                <button
+                  type="button"
+                  onClick={() => setFormType('expense')}
+                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                    formType === 'expense' 
+                      ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm' 
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <Receipt size={16} />
+                  Despesa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormType('income')}
+                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                    formType === 'income' 
+                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <Wallet size={16} />
+                  Receita
+                </button>
+              </div>
+
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Valor da Parcela/Conta</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Valor</label>
                 <div className="relative group">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">R$</span>
                   <input 
@@ -215,17 +283,17 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Nome da Conta</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Descrição</label>
                 <input 
                   type="text" 
                   required
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="Ex: Aluguel"
+                  placeholder={formType === 'income' ? "Ex: Salário" : "Ex: Aluguel"}
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
                 />
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {FIXED_CATEGORIES.map(cat => (
+                  {(formType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(cat => (
                     <button
                       key={cat}
                       type="button"
@@ -253,7 +321,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   }`}
                 >
                   <Repeat size={16} />
-                  Fixa
+                  Mensal
                 </button>
                 <button
                   type="button"
@@ -283,7 +351,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
               {recurrence === 'installments' && (
                 <div className="animate-in fade-in slide-in-from-top-2">
-                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Número de Parcelas</label>
+                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Número de {formType === 'income' ? 'Recebimentos' : 'Parcelas'}</label>
                    <input 
                     type="number" 
                     min="1"
@@ -297,9 +365,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
               <button 
                 type="submit"
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 transition-all active:scale-95 mt-2"
+                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-95 mt-2 text-white ${
+                  formType === 'income' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30' 
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30'
+                }`}
               >
-                Salvar Conta
+                Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
               </button>
             </form>
           </div>
