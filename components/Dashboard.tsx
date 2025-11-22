@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, isDateInBillingPeriod, getBillingPeriodRange, getISODate, getStartOfWeek, getCycleStartDate } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar } from './Icons';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Edit2, Calendar, Fuel } from './Icons';
+import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DashboardProps {
@@ -18,6 +18,7 @@ interface DashboardProps {
 type DetailView = 'none' | 'today' | 'week' | 'month';
 
 const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber'];
+const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
@@ -63,6 +64,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [transactions, startDayOfMonth, endDayOfMonth]);
 
+  // Calculate Fuel Expenses for the Month
+  const fuelExpensesMonth = useMemo(() => {
+    return stats.month.list
+      .filter(t => t.type === 'expense' && t.description === 'Combustível')
+      .reduce((acc, t) => acc + t.amount, 0);
+  }, [stats.month.list]);
+
   // Weekly Chart Data Calculation
   const weeklyChartData = useMemo(() => {
     const startOfWeek = getStartOfWeek(new Date());
@@ -107,9 +115,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       
       // Determine if we should show the text input
       if (transactionToEdit.type === 'expense') {
-        setCustomInputVisible(true);
+        setCustomInputVisible(!EXPENSE_CATEGORIES.includes(transactionToEdit.description));
       } else {
-        // Income: Show input only if description is NOT one of the preset apps
         setCustomInputVisible(!DELIVERY_APPS.includes(transactionToEdit.description));
       }
     } else {
@@ -118,22 +125,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setFormDesc('');
       setFormDate(getISODate(new Date()));
       setIsEditingId(null);
-      
-      // Default: Hide input for Income (force button selection), Show for Expense
-      setCustomInputVisible(type === 'expense');
+      setCustomInputVisible(false);
     }
     setShowForm(true);
   };
 
-  const handleQuickAction = (appName: string) => {
-    setFormDesc(appName);
+  const handleQuickAction = (desc: string) => {
+    setFormDesc(desc);
     setCustomInputVisible(false);
   };
 
   const handleManualAction = () => {
     setFormDesc('');
     setCustomInputVisible(true);
-    // Focus logic
     setTimeout(() => {
       descriptionInputRef.current?.focus();
     }, 100);
@@ -167,49 +171,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
     allowEdit: boolean, 
     groupedByWeek: boolean = false
   ) => {
-    // Sort by date desc
     const sortedList = [...list].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
     let content;
 
     if (groupedByWeek) {
-      // Group by Start of Week Date (Monday)
       const weeks: Record<string, Transaction[]> = {};
-      
       sortedList.forEach(t => {
         const date = new Date(t.date);
         const startOfWeek = getStartOfWeek(date);
-        // Use ISO string as key for reliable sorting and grouping
         const key = getISODate(startOfWeek); 
         if (!weeks[key]) weeks[key] = [];
         weeks[key].push(t);
       });
 
-      // Sort keys (weeks) descending (newest first)
       const sortedKeys = Object.keys(weeks).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-      
       const currentWeekStart = getStartOfWeek(today);
       const currentWeekKey = getISODate(currentWeekStart);
 
       content = sortedKeys.map((weekStartStr) => {
         const transactions = weeks[weekStartStr];
         const isCurrentWeek = weekStartStr === currentWeekKey;
-        
-        // Create display label: "DD/MM until DD/MM"
-        const start = new Date(weekStartStr + 'T12:00:00'); // Add time to ensure correct local date
+        const start = new Date(weekStartStr + 'T12:00:00'); 
         const end = new Date(start);
         end.setDate(end.getDate() + 6);
-        
         const label = `${formatDate(start)} até ${formatDate(end)}`;
-
-        // Prompt restriction: Can only edit PAST weeks in month view. Current week edited in Week view.
         const canEditThisGroup = !isCurrentWeek; 
 
         return (
-          <div key={weekStartStr} className="mb-6">
-            <h3 className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold mb-3 sticky top-0 bg-white dark:bg-slate-950 py-2 flex justify-between items-center">
+          <div key={weekStartStr} className="mb-8">
+            <h3 className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold mb-4 sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm py-3 flex justify-between items-center z-10 tracking-wider">
               <span>{label}</span>
-              {isCurrentWeek && <span className="text-amber-500 font-extrabold text-[10px] bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">ATUAL</span>}
+              {isCurrentWeek && <span className="text-amber-600 dark:text-amber-400 font-bold text-[9px] bg-amber-100 dark:bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-500/20">ATUAL</span>}
             </h3>
             <div className="space-y-3">
               {transactions.map(t => (
@@ -226,11 +218,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         );
       });
     } else {
-      // Standard list
       content = (
         <div className="space-y-3">
           {sortedList.length === 0 ? (
-            <div className="text-slate-500 text-center py-10">Nenhuma movimentação.</div>
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+              <div className="w-20 h-20 bg-slate-100 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center mb-6 animate-pulse">
+                 <Wallet className="opacity-50" size={32} />
+              </div>
+              <p className="font-medium">Nenhuma movimentação.</p>
+            </div>
           ) : (
             sortedList.map(t => (
               <TransactionItem 
@@ -247,14 +243,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     return (
-      <div className="fixed inset-0 bg-white dark:bg-slate-950 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h2>
-          <button onClick={() => setDetailView('none')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-300">
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm animate-in slide-in-from-bottom duration-300">
+        <div className="flex items-center justify-between p-6 bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>
+          <button onClick={() => setDetailView('none')} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-32">
            {content}
         </div>
       </div>
@@ -264,55 +260,65 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // --- Main Render ---
 
   return (
-    <div className="flex flex-col gap-4 pb-24 relative">
-      <header className="pt-8 pb-2 px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Meu Corre 🏍️</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Controle suas entregas</p>
+    <div className="flex flex-col gap-6 pb-32">
+      <header className="pt-8 pb-2 px-2 flex items-center justify-between">
+        <Logo />
+        <div className="text-right">
+           <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">Hoje</p>
+           <p className="text-slate-900 dark:text-slate-100 font-bold text-lg">{formatDate(today)}</p>
+        </div>
       </header>
 
-      {/* Modern Weekly Chart - Floating Design */}
-      <div className="mt-2 mb-6 px-2">
+      {/* Modern Weekly Chart */}
+      <div className="px-2 mb-4">
         <div className="flex justify-between items-end mb-8">
-          <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Resumo da Semana</h3>
+          <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+            <TrendingUp size={14} />
+            Resumo da Semana
+          </h3>
         </div>
         
-        <div className="flex justify-between items-end h-40 gap-2 sm:gap-3">
+        <div className="flex justify-between items-end h-48 gap-2 sm:gap-3">
           {weeklyChartData.days.map((day, index) => {
             const percentage = Math.min(100, (Math.abs(day.balance) / weeklyChartData.maxVal) * 100);
             const isPositive = day.balance >= 0;
             const isZero = day.balance === 0;
             
-            // Dynamic Styles based on value
-            const gradient = isZero 
+            // Modern Gradients & Glows
+            const barGradient = isZero 
               ? 'bg-slate-200 dark:bg-slate-800' 
               : isPositive 
-                ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
-                : 'bg-gradient-to-t from-rose-600 to-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]';
+                ? 'bg-gradient-to-t from-emerald-500 to-emerald-300 dark:from-emerald-600 dark:to-emerald-400' 
+                : 'bg-gradient-to-t from-rose-500 to-rose-300 dark:from-rose-600 dark:to-rose-400';
             
-            const textColor = isZero ? 'text-slate-400 dark:text-slate-600' : isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+            const textColor = isZero 
+              ? 'text-slate-300 dark:text-slate-600' 
+              : isPositive 
+                ? 'text-emerald-600 dark:text-emerald-400' 
+                : 'text-rose-600 dark:text-rose-400';
 
             return (
               <div key={index} className="group flex flex-col items-center justify-end flex-1 h-full relative cursor-default">
                 
-                {/* Floating Value Label (Visible Always) */}
-                <div className={`
-                  absolute -top-6 text-[10px] font-bold z-10
-                  ${textColor}
-                `}>
+                {/* Value Label - Always Visible */}
+                <div className={`absolute -top-8 text-[10px] font-bold z-10 transition-all duration-300 ${textColor}`}>
                   {isZero ? '' : Math.round(day.balance)}
                 </div>
                 
+                {/* Background Track (Pill shape) */}
+                <div className="w-full h-full absolute bottom-0 bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl -z-10 border border-slate-200/30 dark:border-slate-700/30"></div>
+
                 {/* The Bar */}
                 <div 
-                  className={`
-                    w-full rounded-2xl transition-all duration-500 ease-out relative
-                    ${gradient}
-                  `}
-                  style={{ height: isZero ? '4px' : `${percentage}%` }}
+                  className={`w-full rounded-2xl transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) relative ${barGradient} ${!isZero ? 'shadow-lg' : ''}`}
+                  style={{ 
+                    height: isZero ? '4px' : `${percentage}%`,
+                    opacity: isZero ? 0.5 : 1 
+                  }}
                 ></div>
 
                 {/* Day Label */}
-                <div className={`mt-3 text-[10px] sm:text-xs font-medium uppercase transition-colors ${day.isToday ? 'text-amber-500 font-bold' : 'text-slate-400 dark:text-slate-500'}`}>
+                <div className={`mt-3 text-[10px] sm:text-xs font-bold uppercase transition-colors ${day.isToday ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
                   {day.dayName}
                 </div>
               </div>
@@ -321,33 +327,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Cards */}
-      <Card 
-        title="Saldo do Dia" 
-        value={formatCurrency(stats.today.balance)} 
-        subtitle={`${stats.today.list.length} transações hoje`}
-        icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
-        onClick={() => setDetailView('today')}
-        className="border-l-4 border-l-emerald-500 dark:border-l-emerald-500"
-      />
+      {/* Cards container */}
+      <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-1 gap-5">
+          <Card 
+            title="Saldo do Dia" 
+            value={formatCurrency(stats.today.balance)} 
+            subtitle={`${stats.today.list.length} transações hoje`}
+            icon={<Wallet className="text-emerald-500 dark:text-emerald-400" />}
+            variant="default"
+            onClick={() => setDetailView('today')}
+            // Ensure border is visible in dark mode (slate-800 base + emerald override)
+            className="border-l-[6px] border-l-emerald-500 dark:border-l-emerald-500"
+          />
 
-      <Card 
-        title="Saldo da Semana" 
-        value={formatCurrency(stats.week.balance)}
-        subtitle="Toque para ver detalhes semanais"
-        icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
-        onClick={() => setDetailView('week')}
-        className="border-l-4 border-l-blue-500 dark:border-l-blue-500"
-      />
+          <Card 
+            title="Saldo da Semana" 
+            value={formatCurrency(stats.week.balance)}
+            subtitle="Ver detalhes"
+            icon={<Calendar className="text-blue-500 dark:text-blue-400" />}
+            onClick={() => setDetailView('week')}
+            className="border-l-[6px] border-l-blue-500 dark:border-l-blue-500"
+          />
 
-      <Card 
-        title="Saldo do Mês" 
-        value={formatCurrency(stats.month.balance)}
-        subtitle={`Ciclo: ${billingPeriodLabel}`}
-        icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
-        onClick={() => setDetailView('month')}
-        className="border-l-4 border-l-amber-500 dark:border-l-amber-500"
-      />
+          <Card 
+            title="Saldo do Mês" 
+            value={formatCurrency(stats.month.balance)}
+            subtitle={`Ciclo: ${billingPeriodLabel}`}
+            icon={<TrendingUp className="text-amber-500 dark:text-amber-400" />}
+            onClick={() => setDetailView('month')}
+            className="border-l-[6px] border-l-amber-500 dark:border-l-amber-500"
+          />
+        </div>
+
+        <Card 
+          title="Combustível"
+          value={formatCurrency(Math.abs(fuelExpensesMonth))}
+          subtitle="Total no ciclo"
+          icon={<Fuel className="text-rose-500 dark:text-rose-400" />}
+          className="border-l-[6px] border-l-rose-500 dark:border-l-rose-500"
+        />
+      </div>
 
       {/* Detail Views (Modals) */}
       {detailView === 'today' && renderTransactionList('Movimentações de Hoje', stats.today.list, true)}
@@ -357,163 +377,162 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* FAB Backdrop */}
       {isFabOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
           onClick={() => setIsFabOpen(false)}
         />
       )}
 
       {/* Floating Action Button Group */}
-      <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-3">
+      <div className="fixed bottom-32 right-6 z-50 flex flex-col items-end gap-4">
         {/* Expense Action */}
-        <div className={`flex items-center gap-2 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          <span className="bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
-            Nova Despesa
+        <div className={`flex items-center gap-4 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+          <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
+            Despesa
           </span>
           <button 
             onClick={() => handleOpenForm('expense')}
-            className="w-12 h-12 bg-rose-600 rounded-full shadow-lg shadow-rose-900/50 flex items-center justify-center text-white hover:bg-rose-500 active:scale-95"
+            className="w-14 h-14 bg-rose-600 rounded-2xl shadow-xl shadow-rose-600/30 flex items-center justify-center text-white hover:bg-rose-500 active:scale-90 transition-all border-2 border-white/10"
           >
-            <TrendingDown size={20} />
+            <TrendingDown size={24} />
           </button>
         </div>
 
         {/* Income Action */}
-        <div className={`flex items-center gap-2 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          <span className="bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-slate-800 shadow-lg">
-            Nova Receita
+        <div className={`flex items-center gap-4 transition-all duration-300 delay-75 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+          <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
+            Receita
           </span>
           <button 
             onClick={() => handleOpenForm('income')}
-            className="w-12 h-12 bg-emerald-600 rounded-full shadow-lg shadow-emerald-900/50 flex items-center justify-center text-white hover:bg-emerald-500 active:scale-95"
+            className="w-14 h-14 bg-emerald-600 rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-center text-white hover:bg-emerald-500 active:scale-90 transition-all border-2 border-white/10"
           >
-            <TrendingUp size={20} />
+            <TrendingUp size={24} />
           </button>
         </div>
 
         {/* Main Toggle Button */}
         <button 
           onClick={() => setIsFabOpen(!isFabOpen)}
-          className={`w-14 h-14 rounded-full shadow-2xl shadow-amber-900/50 flex items-center justify-center text-white transition-all duration-300 active:scale-90 ${
-            isFabOpen ? 'bg-slate-700 rotate-45' : 'bg-amber-500 hover:bg-amber-400'
+          className={`w-16 h-16 rounded-[1.25rem] shadow-2xl shadow-amber-500/30 flex items-center justify-center text-white transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950 ${
+            isFabOpen ? 'bg-slate-800 rotate-[135deg]' : 'bg-gradient-to-br from-amber-500 to-amber-600'
           }`}
         >
-          <Plus size={28} strokeWidth={2.5} />
+          <Plus size={32} strokeWidth={2.5} />
         </button>
       </div>
 
-      {/* Add/Edit Form Modal - Centered & Adjusted */}
+      {/* Add/Edit Form Modal - Modernized */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
           <div 
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
             onClick={() => setShowForm(false)}
           />
           
-          {/* Modal Content - Centered */}
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl animate-in zoom-in-95 duration-200 z-10 overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white p-2">
+          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  {isEditingId ? 'Editar' : 'Nova'} {formType === 'income' ? 'Receita' : 'Despesa'}
+                </h3>
+                <p className="text-slate-500 text-sm mt-1">Preencha os detalhes abaixo</p>
+              </div>
+              <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full text-slate-500 hover:bg-slate-200 transition-colors">
                 <X size={24} />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-5">
-              
-              {/* Value Input */}
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">Valor</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  required
-                  value={formAmount}
-                  onChange={e => setFormAmount(e.target.value)}
-                  placeholder="0,00"
-                  className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-3xl p-4 rounded-xl focus:border-amber-500 focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-700 font-bold transition-colors"
-                  inputMode="decimal"
-                />
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">Valor</label>
+                <div className="relative group">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl transition-colors group-focus-within:text-amber-500">R$</span>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required
+                    value={formAmount}
+                    onChange={e => setFormAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-4xl pl-14 pr-6 py-6 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none placeholder:text-slate-300 font-bold transition-all border border-transparent focus:border-amber-500/20"
+                    inputMode="decimal"
+                  />
+                </div>
               </div>
               
-              {/* Date Input */}
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">Data</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">Data</label>
                 <input 
                   type="date" 
                   required
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
-                  className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none appearance-none transition-colors"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-5 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent focus:border-amber-500/20"
                 />
               </div>
 
-              {/* Quick Actions for Income */}
-              {formType === 'income' && (
-                <div className="py-1">
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold">App / Origem</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {DELIVERY_APPS.map(app => {
-                      const isActive = !customInputVisible && formDesc === app;
-                      return (
-                        <button
-                          key={app}
-                          type="button"
-                          onClick={() => handleQuickAction(app)}
-                          className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
-                            isActive
-                              ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20' 
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                          }`}
-                        >
-                          {app}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={handleManualAction}
-                      className={`py-2.5 px-1 rounded-xl text-sm font-semibold transition-all active:scale-95 border ${
-                         customInputVisible
-                            ? 'bg-slate-700 text-white border-slate-600 ring-2 ring-slate-600' 
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                      }`}
-                    >
-                      Outro
-                    </button>
-                  </div>
+              {/* Quick Actions */}
+              <div className="py-1">
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-3 uppercase font-bold tracking-wider">
+                   {formType === 'income' ? 'Origem' : 'Categoria'}
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(formType === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(item => {
+                    const isActive = !customInputVisible && formDesc === item;
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handleQuickAction(item)}
+                        className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 ${
+                          isActive
+                            ? formType === 'income' 
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
+                              : 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 ring-2 ring-rose-500 ring-offset-2 dark:ring-offset-slate-900'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={handleManualAction}
+                    className={`py-3.5 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-95 ${
+                       customInputVisible
+                          ? 'bg-slate-800 text-white shadow-lg ring-2 ring-slate-800 ring-offset-2 dark:ring-offset-slate-900' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Outro
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {/* Description Input (Manual/Confirmation) - Hidden by default for Income */}
               {customInputVisible && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold">
-                    Descrição
-                  </label>
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                   <input 
                     ref={descriptionInputRef}
                     type="text" 
                     required={customInputVisible}
                     value={formDesc}
                     onChange={e => setFormDesc(e.target.value)}
-                    placeholder="Ex: Gasolina, Gorjeta..."
-                    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white p-4 rounded-xl focus:border-amber-500 focus:outline-none transition-all"
+                    placeholder="Digite a descrição..."
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-5 rounded-3xl focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all border border-transparent"
                   />
                 </div>
               )}
 
               <button 
                 type="submit"
-                className={`w-full py-4 rounded-xl font-bold text-lg mt-2 transition-transform active:scale-95 shadow-lg ${
+                className={`w-full py-5 rounded-3xl font-bold text-lg mt-4 transition-all active:scale-95 shadow-xl ${
                   formType === 'income' 
-                    ? 'bg-emerald-600 text-white shadow-emerald-900/30 hover:bg-emerald-500' 
-                    : 'bg-rose-600 text-white shadow-rose-900/30 hover:bg-rose-500'
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30 hover:brightness-110' 
+                    : 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-rose-500/30 hover:brightness-110'
                 }`}
               >
-                Salvar
+                Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
               </button>
             </form>
           </div>
@@ -531,24 +550,28 @@ interface TransactionItemProps {
 }
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ t, canEdit, onEdit, onDelete }) => (
-  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center shadow-sm">
-    <div className="flex gap-3 items-center">
-      <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-500'}`}>
-        {t.type === 'income' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+  <div className="group bg-white dark:bg-slate-900/80 backdrop-blur-sm p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex justify-between items-center shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.99]">
+    <div className="flex gap-4 items-center">
+      <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center shadow-sm ${
+        t.type === 'income' 
+          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'
+      }`}>
+        {t.type === 'income' ? <TrendingUp size={22} strokeWidth={2.5} /> : <TrendingDown size={22} strokeWidth={2.5} />}
       </div>
       <div>
-        <div className="font-semibold text-slate-900 dark:text-slate-200">{t.description}</div>
-        <div className="text-xs text-slate-500">{formatDate(t.date)}</div>
+        <div className="font-bold text-slate-800 dark:text-slate-100 text-base">{t.description}</div>
+        <div className="text-xs text-slate-400 font-medium mt-0.5">{formatDate(t.date)}</div>
       </div>
     </div>
     <div className="text-right">
-      <div className={`font-bold ${t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+      <div className={`font-bold text-lg tracking-tight ${t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
         {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
       </div>
       {canEdit && (
-        <div className="flex gap-2 justify-end mt-1">
-          <button onClick={onEdit} className="text-slate-400 hover:text-amber-500 p-1"><Edit2 size={14} /></button>
-          <button onClick={onDelete} className="text-slate-400 hover:text-rose-500 p-1"><Trash2 size={14} /></button>
+        <div className="flex gap-1 justify-end mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-colors"><Edit2 size={16} /></button>
+          <button onClick={onDelete} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"><Trash2 size={16} /></button>
         </div>
       )}
     </div>

@@ -21,27 +21,46 @@ export const Card: React.FC<CardProps> = ({
   className = '',
   children
 }) => {
-  const baseStyles = "relative overflow-hidden rounded-2xl p-5 transition-all active:scale-95 shadow-sm dark:shadow-lg border";
+  // Base styles: Glassmorphism, Smooth borders, Modern shadows
+  const baseStyles = "relative overflow-hidden rounded-[2rem] p-6 transition-all duration-300 border backdrop-blur-xl";
   
+  // Interactive styles: Scale effect and shadow boost on hover/active
+  const interactiveStyles = onClick ? "cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1" : "";
+
   const variants = {
-    default: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100",
-    primary: "bg-blue-600 text-white border-blue-500",
-    success: "bg-emerald-600 text-white border-emerald-500",
-    danger: "bg-rose-600 text-white border-rose-500",
+    // Default: White/Dark background with slight transparency for glass effect.
+    // border-slate-100/dark:border-slate-800 ensures the main border is subtle,
+    // allowing the passed 'className' (border-l-[6px]) to pop.
+    default: "bg-white/80 dark:bg-slate-900/60 border-slate-100 dark:border-slate-800 text-slate-900 dark:text-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
+    
+    // Colored variants for specific highlights (if used)
+    primary: "bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500/50 shadow-lg shadow-blue-500/20",
+    success: "bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-500/50 shadow-lg shadow-emerald-500/20",
+    danger: "bg-gradient-to-br from-rose-500 to-rose-700 text-white border-rose-500/50 shadow-lg shadow-rose-500/20",
   };
 
   return (
     <div 
       onClick={onClick} 
-      className={`${baseStyles} ${variants[variant]} ${onClick ? 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700' : ''} ${className}`}
+      className={`${baseStyles} ${variants[variant]} ${interactiveStyles} ${className}`}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">{title}</h3>
-        {icon && <div className="text-slate-400 dark:text-slate-500">{icon}</div>}
+      <div className="flex justify-between items-start mb-3">
+        <h3 className={`text-xs font-bold uppercase tracking-wider ${variant === 'default' ? 'text-slate-500 dark:text-slate-400' : 'text-white/80'}`}>
+          {title}
+        </h3>
+        {icon && (
+          <div className={`${variant === 'default' ? 'text-slate-400 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 p-2.5 rounded-2xl' : 'text-white/90 bg-white/20 p-2.5 rounded-2xl'}`}>
+            {icon}
+          </div>
+        )}
       </div>
       
-      {value && <div className="text-2xl font-bold">{value}</div>}
-      {subtitle && <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">{subtitle}</div>}
+      {value && <div className="text-3xl font-bold tracking-tight drop-shadow-sm">{value}</div>}
+      {subtitle && (
+        <div className={`text-xs mt-1 font-medium ${variant === 'default' ? 'text-slate-400 dark:text-slate-500' : 'text-white/70'}`}>
+          {subtitle}
+        </div>
+      )}
       {children}
     </div>
   );

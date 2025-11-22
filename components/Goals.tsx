@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange } from '../utils';
@@ -28,18 +27,13 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     getBillingPeriodRange(today, startDay, endDay), 
   [today, startDay, endDay]);
 
-  // We consider it the "Current Cycle View" if the start dates match. 
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
 
   const isFutureView = startDate > currentCycleEnd;
 
-  // Identify unique key for this cycle (Start Date)
   const cycleKey = getISODate(startDate);
-  
-  // Retrieve goal for this specific cycle, default to 0 if not set
   const cycleGoal = goalSettings.monthlyGoals?.[cycleKey] || 0;
 
-  // Helper labels
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
     return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
@@ -50,14 +44,12 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
   }, [startDate, endDate]);
 
-  // Navigation
   const changePeriod = (offset: number) => {
     const newDate = new Date(viewDate);
     newDate.setMonth(newDate.getMonth() + offset);
     setViewDate(newDate);
   };
 
-  // 1. Calculate Progress (Balance = Income - Expenses)
   const currentPeriodBalance = useMemo(() => {
     return transactions
       .filter(t => {
@@ -72,20 +64,16 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   }, [transactions, startDate, endDate]);
 
   const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
-  // Clamp progress between 0 and 100
   const progressPercent = cycleGoal > 0 
     ? Math.max(0, Math.min(100, (currentPeriodBalance / cycleGoal) * 100))
     : 0;
 
-  // 2. Generate Calendar Days for the Cycle
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     const curr = new Date(startDate);
     const maxIterations = 90; 
     let count = 0;
-    
     const iter = new Date(curr);
-
     while (iter <= endDate && count < maxIterations) {
       days.push(new Date(iter));
       iter.setDate(iter.getDate() + 1);
@@ -94,14 +82,11 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     return days;
   }, [startDate, endDate]);
 
-  // 3. Calculate Work Days Logic within the Cycle
   const calculateWorkDays = () => {
     let workDays = 0;
-    
     calendarDays.forEach(date => {
       const dateStr = getISODate(date);
       const isOff = goalSettings.daysOff.includes(dateStr);
-      
       if (!isOff) {
         if (isCurrentCycleView) {
             const dTime = new Date(date).setHours(0,0,0,0);
@@ -117,7 +102,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
 
   const workDaysCount = calculateWorkDays();
 
-  // 4. Calculate Daily Target
   let dailyTarget = 0;
   let helperText = '';
 
@@ -134,13 +118,10 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     helperText = 'Ciclo encerrado';
   }
 
-  // Handlers
   const handleGoalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-    
     onUpdateSettings({
       ...goalSettings,
-      // Update the map with the new value for this specific cycle key
       monthlyGoals: {
         ...(goalSettings.monthlyGoals || {}),
         [cycleKey]: val
@@ -162,14 +143,10 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
     onUpdateSettings({ ...goalSettings, daysOff: newDaysOff });
   };
 
-  // Render Grid
   const renderCalendarGrid = () => {
     const gridItems = [];
+    const firstDayOfWeek = startDate.getDay();
     
-    const firstDayOfWeek = startDate.getDay(); // 0 = Sun
-    const gridCols = 7;
-
-    // Add empty cells for offset
     for (let i = 0; i < firstDayOfWeek; i++) {
        gridItems.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
     }
@@ -179,7 +156,6 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       const dayNum = date.getDate();
       const isFirstOfMonth = dayNum === 1;
       const isOff = goalSettings.daysOff.includes(dateStr);
-      
       const isToday = date.toDateString() === today.toDateString();
       const isPast = date < new Date(new Date().setHours(0,0,0,0));
       
@@ -188,22 +164,22 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
           key={dateStr}
           onClick={() => (!isCurrentCycleView || !isPast) && handleDayClick(date)}
           className={`
-            relative h-10 w-10 rounded-lg flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all border border-transparent
-            ${isPast ? 'opacity-40 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500' : ''}
-            ${isToday ? 'ring-2 ring-amber-500 z-10' : ''}
-            ${!isPast && isOff ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/50' : ''}
-            ${!isPast && !isOff ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700' : ''}
+            relative h-12 w-full aspect-square rounded-2xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all duration-200 border border-transparent
+            ${isPast ? 'opacity-40 grayscale cursor-not-allowed bg-slate-100 dark:bg-slate-800/50' : ''}
+            ${isToday ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-slate-900 z-10 shadow-lg' : ''}
+            ${!isPast && isOff ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' : ''}
+            ${!isPast && !isOff ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:scale-105 active:scale-95' : ''}
           `}
         >
           {isFirstOfMonth && (
-             <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] uppercase bg-white dark:bg-slate-950 text-slate-400 px-1 rounded shadow-sm">
+             <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase bg-slate-900 text-white px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap z-20">
                {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
              </span>
           )}
           
           <span>{dayNum}</span>
           
-          {isOff && !isPast && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full"></div>}
+          {isOff && !isPast && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-rose-500 rounded-full shadow-sm"></div>}
         </div>
       );
     });
@@ -211,70 +187,72 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-24 pt-8 px-2">
+    <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
        <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas & Planejamento 🎯</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Defina quanto quer ganhar</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas & Foco 🎯</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Planeje seu corre.</p>
       </header>
 
-      <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
-        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-lg">
+      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
+        <button onClick={() => changePeriod(-1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
           <ChevronLeft size={24} />
         </button>
         <div className="text-center">
           <div className="text-lg font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
           <div className="text-xs text-slate-500 font-medium">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-lg">
+        <button onClick={() => changePeriod(1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
           <ChevronRight size={24} />
         </button>
       </div>
 
-      <Card title={`Meta do Mês`} className="bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-800 text-white">
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-2xl text-slate-400 font-bold">R$</span>
+      <Card title="Meta do Mês" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
+        <div className="flex items-center gap-3 mt-2">
+          <span className="text-2xl text-slate-500 font-bold">R$</span>
           <input 
             type="number" 
-            // If value is 0, show empty string to keep it "clean" per user request
             value={cycleGoal === 0 ? '' : cycleGoal} 
             onChange={handleGoalChange}
             placeholder="0,00"
-            className="bg-transparent text-3xl font-bold text-white w-full focus:outline-none border-b border-slate-600 focus:border-amber-500 pb-1 placeholder:text-slate-600"
+            className="bg-transparent text-4xl font-bold text-white w-full focus:outline-none placeholder:text-slate-700"
           />
         </div>
       </Card>
 
       {isCurrentCycleView && (
-        <div className="grid grid-cols-2 gap-4">
-          <Card title="Já Feito" className="bg-white dark:bg-slate-900">
-            <div className={`text-xl font-bold mt-1 ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <div className="grid grid-cols-2 gap-5">
+          <Card title="Já Feito">
+            <div className={`text-2xl font-bold mt-1 tracking-tight ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {formatCurrency(currentPeriodBalance)}
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 mt-3 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
+              <div className="bg-emerald-500 h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${progressPercent}%` }}></div>
             </div>
-            <div className="text-[10px] text-slate-500 mt-2">
-              {Math.round(progressPercent)}% da meta
+            <div className="text-[10px] text-slate-400 font-medium mt-2">
+              {Math.round(progressPercent)}% concluído
             </div>
           </Card>
-          <Card title="Falta" className="bg-white dark:bg-slate-900">
-            <div className="text-slate-700 dark:text-slate-300 text-xl font-bold mt-1">
+          <Card title="Falta">
+            <div className="text-slate-800 dark:text-slate-200 text-2xl font-bold mt-1 tracking-tight">
               {formatCurrency(remainingAmount)}
+            </div>
+            <div className="text-xs text-slate-400 mt-3">
+              Força no corre! 🏍️
             </div>
           </Card>
         </div>
       )}
 
-      <Card title={isFutureView ? "Diária Necessária (Previsão)" : "Meta Diária Atual"} className="border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
-         <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500">
-               <Target size={24} />
+      <Card title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} className="border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 backdrop-blur-sm">
+         <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500 flex items-center justify-center shadow-sm">
+               <Target size={28} />
             </div>
             <div>
-               <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">
+               <div className="text-3xl font-bold text-amber-700 dark:text-amber-400 tracking-tight">
                   {formatCurrency(dailyTarget)}
                </div>
-               <div className="text-xs text-amber-600/70 dark:text-amber-300/70 mt-1">
+               <div className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-1 font-medium">
                   {helperText}
                </div>
             </div>
@@ -282,24 +260,24 @@ export const Goals: React.FC<GoalsProps> = ({ goalSettings, transactions, onUpda
       </Card>
 
       <Card 
-        title="Planejamento de Folgas" 
-        subtitle={`Ciclo: ${periodLabel}`} 
+        title="Calendário" 
+        subtitle={`Toque para marcar folgas`} 
         icon={<CalIcon className="text-slate-400"/>}
       >
         <div className="mt-4">
-          <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+          <div className="grid grid-cols-7 gap-2 mb-3 text-center">
              {['D','S','T','Q','Q','S','S'].map((d, i) => (
-               <div key={i} className="text-xs text-slate-500 font-bold">{d}</div>
+               <div key={i} className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{d}</div>
              ))}
           </div>
           
-          <div className="grid grid-cols-7 gap-1 place-items-center">
+          <div className="grid grid-cols-7 gap-2 place-items-center">
              {renderCalendarGrid()}
           </div>
           
-          <div className="mt-4 flex gap-4 text-xs text-slate-500 dark:text-slate-400 justify-center">
-            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"></div> Trabalho</div>
-            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-rose-100 dark:bg-rose-900/50 border border-rose-200 dark:border-rose-800"></div> Folga</div>
+          <div className="mt-6 flex gap-6 text-xs font-medium text-slate-500 dark:text-slate-400 justify-center">
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600 shadow-sm"></div> Trabalho</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-200 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-800 shadow-sm"></div> Folga</div>
           </div>
         </div>
       </Card>

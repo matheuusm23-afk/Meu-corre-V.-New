@@ -14,7 +14,8 @@ import {
   Edit2,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Fuel
 } from 'lucide-react';
 
 export { 
@@ -32,5 +33,6 @@ export {
   Edit2,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Fuel
 };
