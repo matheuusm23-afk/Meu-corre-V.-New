@@ -92,6 +92,10 @@ const App: React.FC = () => {
     setFixedExpenses(prev => [...prev, e]);
   };
 
+  const handleUpdateFixedExpense = (updated: FixedExpense) => {
+    setFixedExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
+  };
+
   const handleDeleteFixedExpense = (id: string) => {
     // Confirmation is handled in the UI components
     setFixedExpenses(prev => prev.filter(e => e.id !== id));
@@ -133,6 +137,7 @@ const App: React.FC = () => {
             startDayOfMonth={goalSettings.startDayOfMonth}
             endDayOfMonth={goalSettings.endDayOfMonth}
             onAddExpense={handleAddFixedExpense}
+            onUpdateExpense={handleUpdateFixedExpense}
             onDeleteExpense={handleDeleteFixedExpense}
           />
         )}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2 } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -10,6 +10,7 @@ interface FixedExpensesProps {
   startDayOfMonth: number;
   endDayOfMonth?: number;
   onAddExpense: (expense: FixedExpense) => void;
+  onUpdateExpense: (expense: FixedExpense) => void;
   onDeleteExpense: (id: string) => void;
 }
 
@@ -21,15 +22,18 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   startDayOfMonth,
   endDayOfMonth,
   onAddExpense,
+  onUpdateExpense,
   onDeleteExpense
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   
   // Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
+  const [formDate, setFormDate] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
   const [installments, setInstallments] = useState('12');
   
@@ -71,27 +75,35 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     e.preventDefault();
     if (!amount || !title) return;
 
-    const newExpense: FixedExpense = {
-      id: uuidv4(),
+    const expenseData: FixedExpense = {
+      id: editingId || uuidv4(),
       title,
       amount: parseFloat(amount),
       category: title,
       recurrence,
-      startDate: getISODate(startDate),
+      startDate: formDate || getISODate(startDate),
       installments: recurrence === 'installments' ? parseInt(installments) : undefined,
       type: formType
     };
 
-    onAddExpense(newExpense);
+    if (editingId) {
+      onUpdateExpense(expenseData);
+    } else {
+      onAddExpense(expenseData);
+    }
+
     setShowForm(false);
     resetForm();
   };
 
   const resetForm = () => {
+    setEditingId(null);
     setTitle('');
     setAmount('');
+    setFormDate('');
     setRecurrence('monthly');
     setFormType('expense');
+    setInstallments('12');
   };
 
   const handleQuickCategory = (cat: string) => {
@@ -99,14 +111,27 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   };
 
   const openForm = (type: 'income' | 'expense') => {
+    resetForm();
     setFormType(type);
+    setFormDate(getISODate(new Date()));
+    setShowForm(true);
+  };
+
+  const handleEdit = (item: FixedExpense) => {
+    setEditingId(item.id);
+    setFormType(item.type || 'expense');
+    setTitle(item.title);
+    setAmount(item.amount.toString());
+    setRecurrence(item.recurrence);
+    setInstallments(item.installments ? item.installments.toString() : '12');
+    setFormDate(item.startDate);
     setShowForm(true);
   };
 
   const renderList = (items: typeof activeItems, isIncome: boolean) => (
     <div className="space-y-3">
        {items.map(item => (
-         <div key={item.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+         <div key={item.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99]" onClick={() => handleEdit(item)}>
             <div className="flex items-center gap-3">
                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                  isIncome 
@@ -143,15 +168,28 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                <span className={`font-bold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {formatCurrency(item.amount)}
                </span>
-               <button 
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   onDeleteExpense(item.id);
-                 }}
-                 className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-               >
-                 <Trash2 size={16} />
-               </button>
+               <div className="flex items-center -mr-2">
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     handleEdit(item);
+                   }}
+                   className="p-2 text-slate-300 hover:text-amber-500 transition-colors"
+                 >
+                   <Edit2 size={16} />
+                 </button>
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     if (window.confirm('Apagar este item?')) {
+                       onDeleteExpense(item.id);
+                     }
+                   }}
+                   className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                 >
+                   <Trash2 size={16} />
+                 </button>
+               </div>
             </div>
          </div>
        ))}
@@ -233,7 +271,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
           
           <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Adicionar Item</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {editingId ? 'Editar' : 'Adicionar'} Item
+              </h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
                 <X size={20} />
               </button>
@@ -284,6 +324,17 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     inputMode="decimal"
                   />
                 </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Data de Início/Vencimento</label>
+                <input 
+                  type="date" 
+                  required
+                  value={formDate}
+                  onChange={e => setFormDate(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent"
+                />
               </div>
 
               <div>
@@ -375,7 +426,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30'
                 }`}
               >
-                Salvar {formType === 'income' ? 'Receita' : 'Despesa'}
+                {editingId ? 'Salvar Alterações' : `Salvar ${formType === 'income' ? 'Receita' : 'Despesa'}`}
               </button>
             </form>
           </div>
