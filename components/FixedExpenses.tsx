@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard, CheckCircle2 } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -17,6 +18,80 @@ interface FixedExpensesProps {
 
 const EXPENSE_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Cartão'];
 const INCOME_CATEGORIES = ['Salário', 'Aposentadoria', 'Aluguel', 'Benefício', 'Extra'];
+
+// --- Swipeable Item Component ---
+interface SwipeableListItemProps {
+  children: React.ReactNode;
+  onTogglePaid: () => void;
+  isPaid: boolean;
+  className?: string;
+  onClick?: () => void;
+}
+
+const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onTogglePaid, isPaid, className, onClick }) => {
+  const [dragX, setDragX] = useState(0);
+  const startX = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Threshold to trigger action (pixels)
+  const THRESHOLD = 100;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startX.current === null) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX.current;
+    
+    // Only allow dragging to the right (positive X) to mark paid/unpaid
+    if (diff > 0 && diff < 200) {
+       setDragX(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (dragX > THRESHOLD) {
+       // Trigger Action
+       onTogglePaid();
+       // Haptic feedback
+       if (navigator.vibrate) navigator.vibrate(50);
+    }
+    // Reset
+    setDragX(0);
+    startX.current = null;
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl select-none group touch-pan-y">
+      {/* Background Layer (Revealed on Swipe) */}
+      <div 
+        className={`absolute inset-0 flex items-center pl-6 transition-colors duration-300 ${
+          dragX > 0 ? (isPaid ? 'bg-slate-300' : 'bg-emerald-500') : 'bg-transparent'
+        }`}
+      >
+        <div className={`transition-opacity duration-200 ${dragX > 40 ? 'opacity-100' : 'opacity-0'} text-white font-bold flex items-center gap-2`}>
+           <CheckCircle2 size={24} />
+           {isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+        </div>
+      </div>
+
+      {/* Foreground Content */}
+      <div
+        ref={containerRef}
+        className={`relative transition-transform duration-200 ease-out ${className}`}
+        style={{ transform: `translateX(${dragX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={onClick}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
 
 export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   fixedExpenses,
@@ -107,7 +182,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       startDate: formDate, 
       installments: recurrence === 'installments' ? parseInt(installments) : undefined,
       type: formType,
-      excludedDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.excludedDates : []
+      excludedDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.excludedDates : [],
+      paidDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.paidDates : []
     };
 
     if (editingId) {
@@ -200,6 +276,24 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setDeleteModal({ isOpen: false, item: null });
   };
 
+  const handleTogglePaid = (item: FixedExpense & { occurrenceDate: string, isPaid: boolean }) => {
+    const currentItem = fixedExpenses.find(f => f.id === item.id);
+    if (!currentItem) return;
+
+    const currentPaidDates = currentItem.paidDates || [];
+    let updatedPaidDates;
+
+    if (item.isPaid) {
+        // Mark as Unpaid (Remove from array)
+        updatedPaidDates = currentPaidDates.filter(d => d !== item.occurrenceDate);
+    } else {
+        // Mark as Paid (Add to array)
+        updatedPaidDates = [...currentPaidDates, item.occurrenceDate];
+    }
+    
+    onUpdateExpense({ ...currentItem, paidDates: updatedPaidDates });
+  };
+
   const renderList = (items: typeof activeItems, isIncome: boolean) => (
     <div className="space-y-3">
        {items.map(item => {
@@ -218,17 +312,21 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
          }
 
          return (
-         <div 
-            key={item.id} 
-            className={`flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] ${
-               isCreditCard 
-                 ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
-                 : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
-            }`} 
+         <SwipeableListItem 
+            key={`${item.id}-${item.occurrenceDate}`}
+            isPaid={item.isPaid}
+            onTogglePaid={() => handleTogglePaid(item)}
             onClick={() => handleEdit(item)}
+            className={`flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-white dark:bg-slate-900 ${
+               item.isPaid 
+                 ? 'border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10' 
+                 : isCreditCard 
+                    ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
+                    : 'border-slate-100 dark:border-slate-800'
+            }`} 
          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-               <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
+            <div className={`flex items-center gap-3 flex-1 min-w-0 ${item.isPaid ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+               <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center relative ${
                  isIncome 
                   ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' 
                   : isCreditCard
@@ -236,6 +334,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
                   {isIncome ? <TrendingUp size={18} /> : isCreditCard ? <CreditCard size={18} /> : <Receipt size={18} />}
+                  
+                  {/* Paid Badge Overlay */}
+                  {item.isPaid && (
+                      <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
+                          <CheckCircle2 size={10} strokeWidth={3} />
+                      </div>
+                  )}
                </div>
                <div className="min-w-0 flex-1">
                   {isCreditCard && (
@@ -243,7 +348,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       Cartão de Crédito
                     </p>
                   )}
-                  <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight">{item.title}</p>
+                  <p className={`font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight ${item.isPaid ? 'line-through decoration-emerald-500/50' : ''}`}>
+                      {item.title}
+                  </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                     {item.recurrence === 'installments' && item.currentInstallment && (
                       <span className="text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md whitespace-nowrap">
@@ -263,10 +370,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                      <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
                         {item.recurrence === 'installments' ? 'Parcelado' : ''}
                      </span>
+                     {item.isPaid && (
+                         <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">PAGO</span>
+                     )}
                   </div>
                </div>
             </div>
-            <div className="flex flex-col items-end pl-2 shrink-0">
+            <div className={`flex flex-col items-end pl-2 shrink-0 ${item.isPaid ? 'opacity-60' : ''}`}>
                <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {formatCurrency(item.amount)}
                </span>
@@ -298,7 +408,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                  </button>
                </div>
             </div>
-         </div>
+         </SwipeableListItem>
        )})}
     </div>
   );
@@ -315,7 +425,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
       <header className="px-2">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Fixas & Recorrentes 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas e receitas do mês.</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas e receitas do mês. <br/><span className="text-xs opacity-70">Deslize para direita para marcar como pago 👉</span></p>
       </header>
 
       <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">

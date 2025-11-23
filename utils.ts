@@ -220,32 +220,35 @@ export const getFixedExpensesForPeriod = (
         if (expense.excludedDates?.includes(occurrenceStr)) {
             return null;
         }
-    } else {
-        // No occurrence in this period
-        return null;
+
+        // Determine Payment Status
+        const isPaid = expense.paidDates?.includes(occurrenceStr) || false;
+        
+        // Prepare shared return object parts
+        const baseReturn = {
+           ...expense, 
+           occurrenceDate: occurrenceStr,
+           isPaid
+        };
+
+        // Handle specific types
+        if (expense.recurrence === 'single' || expense.recurrence === 'monthly') {
+           return { ...baseReturn, currentInstallment: null };
+        }
+
+        if (expense.recurrence === 'installments' && expense.installments) {
+          // Calculate installment number
+          const startMonthIndex = startDate.getFullYear() * 12 + startDate.getMonth();
+          const currentMonthIndex = currentOccurrenceDate!.getFullYear() * 12 + currentOccurrenceDate!.getMonth();
+          
+          const monthDiff = currentMonthIndex - startMonthIndex;
+          
+          if (monthDiff >= 0 && monthDiff < expense.installments) {
+            return { ...baseReturn, currentInstallment: monthDiff + 1 };
+          }
+        }
     }
 
-    // If we passed the exclusion check, return the processed object
-    if (expense.recurrence === 'single') {
-      return { ...expense, currentInstallment: null, occurrenceDate: getISODate(currentOccurrenceDate!) };
-    }
-
-    if (expense.recurrence === 'monthly') {
-      return { ...expense, currentInstallment: null, occurrenceDate: getISODate(currentOccurrenceDate!) };
-    }
-
-    if (expense.recurrence === 'installments' && expense.installments) {
-      // Calculate month difference to see if it's still valid
-      const startMonthIndex = startDate.getFullYear() * 12 + startDate.getMonth();
-      // Use the occurrence date to determine installment number
-      const currentMonthIndex = currentOccurrenceDate!.getFullYear() * 12 + currentOccurrenceDate!.getMonth();
-      
-      const monthDiff = currentMonthIndex - startMonthIndex;
-      
-      if (monthDiff >= 0 && monthDiff < expense.installments) {
-        return { ...expense, currentInstallment: monthDiff + 1, occurrenceDate: getISODate(currentOccurrenceDate!) };
-      }
-    }
     return null;
-  }).filter((e): e is (FixedExpense & { currentInstallment: number | null, occurrenceDate: string }) => e !== null);
+  }).filter((e): e is (FixedExpense & { currentInstallment: number | null, occurrenceDate: string, isPaid: boolean }) => e !== null);
 };

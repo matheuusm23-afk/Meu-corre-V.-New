@@ -22,6 +22,7 @@ export interface FixedExpense {
   installments?: number; // Total number of installments if recurrence is 'installments'
   type?: 'income' | 'expense'; // Added to support fixed incomes. Defaults to 'expense' if undefined.
   excludedDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were deleted
+  paidDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were marked as paid
 }
 
 export interface GoalSettings {
