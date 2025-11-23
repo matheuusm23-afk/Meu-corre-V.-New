@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
-import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod } from '../utils';
+import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal } from '../utils';
 import { Card } from './ui/Card';
 import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle } from './Icons';
 
@@ -67,9 +68,10 @@ export const Goals: React.FC<GoalsProps> = ({
   };
 
   const currentPeriodBalance = useMemo(() => {
-    return transactions
+    // 1. Manual Transactions Balance
+    const manualBalance = transactions
       .filter(t => {
-        const tDate = new Date(t.date);
+        const tDate = parseDateLocal(t.date);
         return tDate >= startDate && tDate <= endDate;
       })
       .reduce((acc, t) => {
@@ -77,7 +79,15 @@ export const Goals: React.FC<GoalsProps> = ({
         if (t.type === 'expense') return acc - t.amount;
         return acc;
       }, 0);
-  }, [transactions, startDate, endDate]);
+
+    // 2. Paid Fixed Expenses for this period (Subtract from balance)
+    const relevantFixedExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    const paidFixedExpensesTotal = relevantFixedExpenses
+      .filter(e => e.type !== 'income' && e.isPaid)
+      .reduce((acc, e) => acc + e.amount, 0);
+
+    return manualBalance - paidFixedExpensesTotal;
+  }, [transactions, fixedExpenses, startDate, endDate]);
 
   const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
   const progressPercent = cycleGoal > 0 
