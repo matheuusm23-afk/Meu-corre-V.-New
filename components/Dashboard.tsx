@@ -425,15 +425,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Modal Form */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center">
           <div 
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
             onClick={() => setShowForm(false)}
           />
           
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50 mb-2 sm:mb-0">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Editar' : 'Novo'} Lançamento
               </h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
@@ -441,14 +441,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-3">
               
               {/* Type Toggle */}
-              <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex relative">
+              <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex relative">
                 <button
                   type="button"
                   onClick={() => setType('income')}
-                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
                     type === 'income' 
                       ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400'
@@ -460,7 +460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setType('expense')}
-                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
                     type === 'expense' 
                       ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400'
@@ -472,7 +472,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Valor</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Valor</label>
                 <div className="relative group">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">R$</span>
                   <input 
@@ -482,42 +482,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
                     placeholder="0,00"
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-4xl pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-2xl pl-12 pr-3 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
                     inputMode="decimal"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Data</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Data</label>
                 <input 
                   type="date" 
                   required
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none transition-all font-medium border border-transparent"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none transition-all font-medium border border-transparent text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Descrição</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Descrição</label>
                 <input 
                   type="text" 
                   required
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder={type === 'income' ? "Ex: iFood, 99..." : "Ex: Gasolina..."}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium border border-transparent"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium border border-transparent text-sm"
                 />
                 
                 {/* Quick Tags */}
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {(type === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(tag => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setDescription(tag)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                      className={`text-[10px] font-bold px-2 py-1.5 rounded-lg transition-colors ${
                         description === tag 
                           ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' 
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -531,7 +531,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               <button 
                 type="submit"
-                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-95 mt-2 text-white ${
+                className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all active:scale-95 mt-1 text-white ${
                   type === 'income' 
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30' 
                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30'
