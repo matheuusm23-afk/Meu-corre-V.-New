@@ -607,8 +607,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             onClick={() => setShowForm(false)}
           />
           
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50 mb-2 sm:mb-0">
-            <div className="flex justify-between items-center mb-5">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50 mb-2 sm:mb-0">
+            <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Editar' : 'Adicionar'} Item
               </h3>
@@ -617,40 +617,40 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-3">
               
               {/* Type Toggle */}
-              <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex relative">
+              <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex relative">
                 <button
                   type="button"
                   onClick={() => setFormType('expense')}
-                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
                     formType === 'expense' 
                       ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  <Receipt size={16} />
+                  <Receipt size={14} />
                   Despesa
                 </button>
                 <button
                   type="button"
                   onClick={() => setFormType('income')}
-                  className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all relative z-10 ${
                     formType === 'income' 
                       ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  <Wallet size={16} />
+                  <Wallet size={14} />
                   Receita
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Valor</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Valor</label>
                 <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">R$</span>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -658,41 +658,40 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
                     placeholder="0,00"
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-3xl pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-2xl pl-10 pr-3 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
                     inputMode="decimal"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Data de Início/Vencimento</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Data de Início/Vencimento</label>
                 <input 
                   type="date" 
                   required
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent text-sm"
                 />
-                <p className="text-[10px] text-slate-400 mt-1 ml-2">A cobrança iniciará a partir desta data.</p>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Descrição</label>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Descrição</label>
                 <input 
                   type="text" 
                   required
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder={formType === 'income' ? "Ex: Salário" : "Ex: Aluguel"}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-sm"
                 />
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {(formType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(cat => (
                     <button
                       key={cat}
                       type="button"
                       onClick={() => handleQuickCategory(cat)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                      className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-colors ${
                         category === cat // Highlight if it matches the selected Category (even if Title is different)
                           ? 'bg-blue-500 text-white' 
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -708,60 +707,60 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                 <button
                   type="button"
                   onClick={() => setRecurrence('monthly')}
-                  className={`py-3 rounded-lg text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all ${
+                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                     recurrence === 'monthly' 
                       ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm' 
                       : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}
                 >
-                  <Repeat size={16} />
+                  <Repeat size={14} />
                   Mensal
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecurrence('installments')}
-                  className={`py-3 rounded-lg text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all ${
+                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                     recurrence === 'installments' 
                       ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-sm' 
                       : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}
                 >
-                  <Clock size={16} />
+                  <Clock size={14} />
                   Parcelas
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecurrence('single')}
-                  className={`py-3 rounded-lg text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all ${
+                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                     recurrence === 'single' 
                       ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm' 
                       : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}
                 >
-                  <Calendar size={16} />
+                  <Calendar size={14} />
                   Única
                 </button>
               </div>
 
               {recurrence === 'installments' && (
                 <div className="animate-in fade-in slide-in-from-top-2">
-                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 uppercase font-bold tracking-wider">Número de {formType === 'income' ? 'Recebimentos' : 'Parcelas'}</label>
+                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Número de {formType === 'income' ? 'Recebimentos' : 'Parcelas'}</label>
                    <input 
                     type="number" 
                     min="1"
                     max="999"
                     value={installments}
                     onChange={e => setInstallments(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 rounded-2xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium text-sm"
                   />
                   {formTotalValue > 0 && (
-                      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                      <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-400">
                           <div className="bg-amber-200 dark:bg-amber-800 p-1 rounded-full">
-                              <TrendingUp size={12} className="text-amber-800 dark:text-amber-200"/>
+                              <TrendingUp size={10} className="text-amber-800 dark:text-amber-200"/>
                           </div>
-                          <div className="text-xs font-medium">
+                          <div className="text-[10px] font-medium">
                              <span className="opacity-70 mr-1">Total do contrato:</span> 
-                             <span className="font-bold text-sm">{formatCurrency(formTotalValue)}</span>
+                             <span className="font-bold text-xs">{formatCurrency(formTotalValue)}</span>
                           </div>
                       </div>
                   )}
@@ -770,7 +769,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
               <button 
                 type="submit"
-                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-95 mt-2 text-white ${
+                className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all active:scale-95 mt-1 text-white ${
                   formType === 'income' 
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30' 
                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30'
