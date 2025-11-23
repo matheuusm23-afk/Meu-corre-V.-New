@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { Transaction, TransactionType, ViewMode } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal } from '../utils';
@@ -31,6 +31,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isFabVisible, setIsFabVisible] = useState(true);
 
   // Form State
   const [amount, setAmount] = useState('');
@@ -38,6 +39,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [date, setDate] = useState(getISODate(new Date()));
   const [type, setType] = useState<TransactionType>('income');
   const [category, setCategory] = useState('');
+
+  // Scroll Listener for FAB Visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show only if we are very close to the top (e.g., < 20px)
+      setIsFabVisible(window.scrollY < 20);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // --- CALCULATIONS ---
 
@@ -398,7 +410,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* FAB */}
       <button 
         onClick={() => handleOpenForm()}
-        className="fixed bottom-32 right-6 z-40 w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl shadow-slate-900/30 flex items-center justify-center text-white dark:text-slate-900 transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950"
+        className={`fixed bottom-32 right-6 z-40 w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl shadow-slate-900/30 flex items-center justify-center text-white dark:text-slate-900 transition-all duration-300 border-4 border-slate-50 dark:border-slate-950 ${
+          isFabVisible 
+            ? 'scale-100 opacity-100 translate-y-0' 
+            : 'scale-0 opacity-0 translate-y-12 pointer-events-none'
+        } active:scale-95`}
       >
         <Plus size={32} strokeWidth={2.5} />
       </button>
