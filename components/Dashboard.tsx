@@ -299,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           Ganhos da Semana
         </h2>
         
-        <div className="grid grid-cols-7 gap-2 h-48 items-end">
+        <div className="grid grid-cols-7 gap-2 h-48 items-end pb-2">
             {chartData.map((day) => {
               const height = (day.income / maxChartValue) * 100;
               const isToday = isSameDay(day.date, today);
@@ -311,38 +311,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 : Math.floor(day.income).toString();
 
               return (
-                <div key={day.dayStr} className="flex flex-col items-center gap-2 h-full justify-end w-full">
-                  {/* Bar Container */}
-                  <div className="relative flex items-end justify-center w-full h-full pb-6">
-                     {/* Value Label (Always Visible) */}
-                     <span 
-                        className={`absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold mb-1 whitespace-nowrap transition-all ${
-                          isToday ? 'text-emerald-600 dark:text-emerald-400 scale-110' : 'text-slate-400 dark:text-slate-500'
-                        } ${hasIncome ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ bottom: `${Math.max(height, 0)}%`, top: 'auto' }}
-                     >
-                       R$ {displayValue}
-                     </span>
+                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-2 group">
+                  
+                  {/* Bar Area (Includes Label + Track) */}
+                  <div className="relative w-full flex-1 flex items-end justify-center">
                      
+                     {/* Floating Value Label */}
+                     <div 
+                        className={`absolute bottom-0 mb-1 flex flex-col items-center transition-all duration-500 ease-out z-10 ${
+                            hasIncome ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        style={{ bottom: `${Math.max(height, 0)}%` }}
+                     >
+                        <span className={`text-[9px] font-bold whitespace-nowrap px-1 py-0.5 rounded bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700 ${
+                            isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+                        }`}>
+                            R$ {displayValue}
+                        </span>
+                     </div>
+
                      {/* Bar Track */}
-                     <div className="w-full max-w-[12px] sm:max-w-[16px] bg-slate-100 dark:bg-slate-800 rounded-full h-full flex items-end overflow-hidden relative">
-                       {/* Active Bar */}
-                       <div 
-                          style={{ height: `${Math.max(height, 2)}%` }} 
-                          className={`w-full transition-all duration-700 ease-out rounded-full ${
+                     <div className="w-3 sm:w-4 bg-slate-100 dark:bg-slate-800 rounded-full h-full relative overflow-hidden">
+                        {/* Filled Bar */}
+                        <div 
+                           style={{ height: `${Math.max(height, 2)}%` }} 
+                           className={`w-full absolute bottom-0 transition-all duration-700 ease-out rounded-full ${
                               hasIncome 
-                              ? 'bg-emerald-500 dark:bg-emerald-500' 
+                              ? 'bg-emerald-500' 
                               : 'bg-transparent'
-                          } ${isToday ? 'ring-2 ring-emerald-200 dark:ring-emerald-900' : ''}`}
-                       />
+                           } ${isToday ? 'ring-[2px] ring-emerald-200 dark:ring-emerald-900' : ''}`}
+                        />
                      </div>
                   </div>
                   
                   {/* Day Label */}
-                  <div className="text-center absolute bottom-0">
-                    <div className={`text-[10px] font-bold uppercase ${isToday ? 'text-blue-500' : 'text-slate-400'}`}>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-blue-500' : 'text-slate-400'}`}>
                       {day.fullDay}
-                    </div>
                   </div>
                 </div>
               );
