@@ -48,6 +48,11 @@ const App: React.FC = () => {
         startDayOfMonth: parsed.startDayOfMonth || 1
       });
     }
+
+    // Real Analytics: Visit Counter
+    const visits = localStorage.getItem('app_visits');
+    const newVisits = visits ? parseInt(visits) + 1 : 1;
+    localStorage.setItem('app_visits', newVisits.toString());
   }, []);
 
   useEffect(() => {
@@ -114,6 +119,7 @@ const App: React.FC = () => {
         {currentView === 'home' && (
           <Dashboard 
             transactions={transactions}
+            fixedExpenses={fixedExpenses}
             startDayOfMonth={goalSettings.startDayOfMonth}
             endDayOfMonth={goalSettings.endDayOfMonth}
             onAddTransaction={handleAddTransaction}
@@ -147,6 +153,7 @@ const App: React.FC = () => {
             onUpdateSettings={setGoalSettings}
             currentTheme={theme}
             onToggleTheme={toggleTheme}
+            transactions={transactions}
           />
         )}
       </main>

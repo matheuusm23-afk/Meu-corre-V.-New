@@ -1,14 +1,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
-import { Transaction, TransactionType, ViewMode } from '../types';
-import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal } from '../utils';
+import { Transaction, TransactionType, ViewMode, FixedExpense } from '../types';
+import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal, getFixedExpensesForPeriod } from '../utils';
 import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info } from './Icons';
 import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DashboardProps {
   transactions: Transaction[];
+  fixedExpenses: FixedExpense[];
   startDayOfMonth: number;
   endDayOfMonth?: number;
   onAddTransaction: (t: Transaction) => void;
@@ -22,6 +23,7 @@ const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação', 'Al
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
+  fixedExpenses,
   startDayOfMonth,
   endDayOfMonth,
   onAddTransaction, 
@@ -117,7 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // 6. Balances
   
   // Today's Balance (Strictly today)
-  // Modified: Now strictly counts INCOME only (Gross Daily), ignoring ALL expenses per user request.
+  // Logic: Strictly counts INCOME only (Gross Daily), ignoring ALL expenses (Manual & Fixed) per user request.
   const todayBalance = useMemo(() => {
     return transactions
       .filter(t => isSameDay(parseDateLocal(t.date), today))
@@ -125,7 +127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (t.type === 'income') {
           return acc + t.amount;
         }
-        // Expenses are ignored for "Saldo do Dia"
+        // Expenses (manual or fixed) are ignored for "Saldo do Dia"
         return acc;
       }, 0);
   }, [transactions, today]);
@@ -138,12 +140,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [transactions, today]);
 
   // Month Balance (Based on selected Billing Cycle)
-  // Includes ALL expenses (fuel included)
+  // Logic: 
+  // 1. Manual Net = Manual Income - Manual Expenses
+  // 2. Paid Fixed Expenses = Sum of fixed expenses marked as paid in this cycle
+  // 3. Result = Manual Net - Paid Fixed Expenses
   const monthBalance = useMemo(() => {
-    return currentPeriodTransactions.reduce((acc, t) => {
+    // 1. Manual Transactions Balance
+    const manualTotal = currentPeriodTransactions.reduce((acc, t) => {
       return t.type === 'income' ? acc + t.amount : acc - t.amount;
     }, 0);
-  }, [currentPeriodTransactions]);
+
+    // 2. Paid Fixed Expenses for this period
+    const relevantFixedExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    const paidFixedExpensesTotal = relevantFixedExpenses
+      .filter(e => e.type !== 'income' && e.isPaid)
+      .reduce((acc, e) => acc + e.amount, 0);
+
+    return manualTotal - paidFixedExpensesTotal;
+  }, [currentPeriodTransactions, fixedExpenses, startDate, endDate]);
 
   // Month Gross Income (Total Earnings without expenses)
   const monthGrossIncome = useMemo(() => {
@@ -271,7 +285,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Month Balance */}
       <Card 
-        title="Saldo do Mês" 
+        title="Saldo da Conta" 
         value={formatCurrency(monthBalance)} 
         variant="primary"
         valueClassName="text-3xl"
