@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
 import { Card } from './ui/Card';
-import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle } from './Icons';
+import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle, TrendingUp, TrendingDown } from './Icons';
 
 interface GoalsProps {
   goalSettings: GoalSettings;
@@ -41,16 +41,13 @@ export const Goals: React.FC<GoalsProps> = ({
   [today, startDay, endDay]);
 
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
-
   const isFutureView = startDate > currentCycleEnd;
 
-  // Check if there is any income transaction for TODAY with value > 0
-  const hasIncomeToday = useMemo(() => {
-    return transactions.some(t => 
-      t.type === 'income' && 
-      t.amount > 0 &&
-      isSameDay(parseDateLocal(t.date), today)
-    );
+  // Calculate Income specifically for TODAY
+  const incomeToday = useMemo(() => {
+    return transactions
+      .filter(t => t.type === 'income' && isSameDay(parseDateLocal(t.date), today))
+      .reduce((acc, t) => acc + t.amount, 0);
   }, [transactions, today]);
 
   // Calculate Cycle Goal based on Fixed Expenses MINUS Fixed Income for the viewed period
@@ -105,6 +102,7 @@ export const Goals: React.FC<GoalsProps> = ({
   }, [transactions, fixedExpenses, startDate, endDate]);
 
   const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
+  
   const progressPercent = cycleGoal > 0 
     ? Math.max(0, Math.min(100, (currentPeriodBalance / cycleGoal) * 100))
     : (currentPeriodBalance >= 0 ? 100 : 0);
@@ -123,55 +121,121 @@ export const Goals: React.FC<GoalsProps> = ({
     return days;
   }, [startDate, endDate]);
 
-  const calculateWorkDays = () => {
-    let workDays = 0;
+  // Calculate workdays details
+  const workDaysDetails = useMemo(() => {
+    let futureDays = 0; // Strictly future
+    let isTodayWorkDay = false;
+    let totalInCycle = 0;
+
     calendarDays.forEach(date => {
       const dateStr = getISODate(date);
       const isOff = goalSettings.daysOff.includes(dateStr);
+      
       if (!isOff) {
         if (isCurrentCycleView) {
             const dTime = new Date(date).setHours(0,0,0,0);
             const tTime = new Date(today).setHours(0,0,0,0);
             
-            if (hasIncomeToday) {
-              // If we worked today (has income), we only count days STRICTLY AFTER today
-              if (dTime > tTime) workDays++;
-            } else {
-              // If we haven't worked today yet, today counts as a remaining day to earn money
-              if (dTime >= tTime) workDays++;
-            }
+            if (dTime > tTime) futureDays++;
+            if (dTime === tTime) isTodayWorkDay = true;
         } else {
-            workDays++;
+            // For future/past views, just count total
         }
+        totalInCycle++; // Approximate total for other views
       }
     });
-    return workDays;
-  };
 
-  const workDaysCount = calculateWorkDays();
+    return { futureDays, isTodayWorkDay, totalInCycle };
+  }, [calendarDays, goalSettings.daysOff, isCurrentCycleView, today]);
 
-  let dailyTarget = 0;
+  // --- Daily Target Logic ---
+
+  let dailyTargetDisplay = 0;
   let helperText = '';
+  let messageNode = null;
+  let comparisonNode = null;
+  let cardVariant: 'default' | 'success' | 'danger' = 'default';
 
   if (isCurrentCycleView) {
-    dailyTarget = workDaysCount > 0 ? remainingAmount / workDaysCount : 0;
-    
-    // Custom helper text logic
-    if (workDaysCount > 0) {
-      helperText = `Para bater a meta em ${workDaysCount} dias restantes`;
+    // 1. Calculate Baseline (Start of Day State)
+    // To know if we "hit" the goal, we need to know what the goal WAS at 00:00 today.
+    // Baseline Remaining = Current Remaining + Income Today
+    // Baseline Days = Future Days + (1 if today is workday)
+    const baselineRemaining = remainingAmount + incomeToday;
+    const baselineDays = workDaysDetails.futureDays + (workDaysDetails.isTodayWorkDay ? 1 : 0);
+    const startOfDayTarget = baselineDays > 0 ? baselineRemaining / baselineDays : 0;
+
+    // 2. Determine Current State
+    if (incomeToday > 0) {
+       // SCENARIO: WORKED TODAY
+       // The target displayed should be the RECALCULATED target for tomorrow onwards.
+       // Remaining Amount is already updated (lower).
+       // Days count should be FUTURE days only.
+       
+       const futureDays = workDaysDetails.futureDays;
+       
+       // If no future days left, target is 0 (or simply remaining if any)
+       dailyTargetDisplay = futureDays > 0 ? remainingAmount / futureDays : remainingAmount;
+       
+       // Feedback Logic
+       // Check if we hit the "Start of Day" target
+       const hitGoal = incomeToday >= startOfDayTarget;
+       
+       if (hitGoal) {
+          cardVariant = 'success';
+          messageNode = (
+            <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-2 font-medium bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
+               Parabéns vc bateu sua meta hoje e sua diária partir de amanhã ficará mais baixa 🚀
+            </p>
+          );
+       } else {
+          cardVariant = 'danger';
+          messageNode = (
+            <p className="text-xs text-rose-800 dark:text-rose-200 mt-2 font-medium bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg">
+               Que pena você não bateu a meta hoje, amanhã sua meta ficará um pouco maior 📉
+            </p>
+          );
+       }
+       
+       // Comparison Breakdown
+       comparisonNode = (
+          <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-white/50 dark:bg-slate-900/50 rounded-xl text-xs border border-slate-200/50 dark:border-slate-700/50">
+             <div>
+                <span className="block text-slate-500 dark:text-slate-400">Meta de Hoje</span>
+                <span className="block font-bold text-slate-700 dark:text-slate-300">{formatCurrency(startOfDayTarget)}</span>
+             </div>
+             <div>
+                <span className="block text-slate-500 dark:text-slate-400">Feito Hoje</span>
+                <span className={`block font-bold ${hitGoal ? 'text-emerald-600' : 'text-rose-600'}`}>
+                   {formatCurrency(incomeToday)}
+                </span>
+             </div>
+          </div>
+       );
+       
+       helperText = futureDays > 0 
+          ? `Nova meta para os ${futureDays} dias restantes`
+          : 'Ciclo finalizado!';
+
     } else {
-      if (remainingAmount > 0) {
-        helperText = 'Sem dias restantes para a meta';
-      } else {
-        helperText = 'Meta finalizada';
-      }
+       // SCENARIO: HAVEN'T WORKED YET
+       // The target displayed is the Start of Day Target.
+       // Days count includes today.
+       
+       dailyTargetDisplay = startOfDayTarget;
+       
+       helperText = baselineDays > 0 
+          ? `Para bater a meta em ${baselineDays} dias (incluindo hoje)` 
+          : 'Sem dias úteis restantes';
     }
 
   } else if (isFutureView) {
-    dailyTarget = workDaysCount > 0 ? cycleGoal / workDaysCount : 0;
-    helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
+    const totalDays = workDaysDetails.totalInCycle;
+    dailyTargetDisplay = totalDays > 0 ? cycleGoal / totalDays : 0;
+    helperText = `Previsão baseada em ${totalDays} dias de trabalho`;
   } else {
-    dailyTarget = 0;
+    // Past View
+    dailyTargetDisplay = 0;
     helperText = 'Ciclo encerrado';
   }
 
@@ -288,20 +352,47 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
       )}
 
-      <Card title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} className="border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 backdrop-blur-sm">
+      {/* Daily Goal Card with Feedback Logic */}
+      <Card 
+        title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} 
+        className={`${
+           cardVariant === 'default' 
+             ? 'border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20' 
+             : cardVariant === 'success' 
+                ? 'border border-emerald-200/50 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20'
+                : 'border border-rose-200/50 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20'
+        } backdrop-blur-sm`}
+      >
          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500 flex items-center justify-center shadow-sm">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${
+               cardVariant === 'default'
+                ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500'
+                : cardVariant === 'success'
+                   ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500'
+                   : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
+            }`}>
                <Target size={28} />
             </div>
             <div>
-               <div className="text-2xl font-bold text-amber-700 dark:text-amber-400 tracking-tight">
-                  {formatCurrency(dailyTarget)}
+               <div className={`text-2xl font-bold tracking-tight ${
+                 cardVariant === 'default' ? 'text-amber-700 dark:text-amber-400' :
+                 cardVariant === 'success' ? 'text-emerald-700 dark:text-emerald-400' :
+                 'text-rose-700 dark:text-rose-400'
+               }`}>
+                  {formatCurrency(dailyTargetDisplay)}
                </div>
-               <div className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-1 font-medium">
+               <div className={`text-xs mt-1 font-medium ${
+                 cardVariant === 'default' ? 'text-amber-700/70 dark:text-amber-400/70' :
+                 cardVariant === 'success' ? 'text-emerald-700/70 dark:text-emerald-400/70' :
+                 'text-rose-700/70 dark:text-rose-400/70'
+               }`}>
                   {helperText}
                </div>
             </div>
          </div>
+         
+         {comparisonNode}
+         {messageNode}
       </Card>
 
       <Card 
