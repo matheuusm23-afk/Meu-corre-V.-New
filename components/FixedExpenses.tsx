@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedExpense, RecurrenceType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
@@ -104,6 +103,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   const [showCreditCardDetails, setShowCreditCardDetails] = useState(false);
+  const [isFabVisible, setIsFabVisible] = useState(true);
   
   // Delete Modal State
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
@@ -117,6 +117,17 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [formDate, setFormDate] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
   const [installments, setInstallments] = useState('12');
+
+  // Scroll Listener for FAB Visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show only if we are very close to the top (e.g., < 20px)
+      setIsFabVisible(window.scrollY < 20);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   
   const { startDate, endDate } = useMemo(() => 
     getBillingPeriodRange(viewDate, startDayOfMonth, endDayOfMonth), 
@@ -538,7 +549,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       {/* Floating Add Button */}
       <button 
         onClick={() => openForm('expense')}
-        className="fixed bottom-32 right-6 z-50 w-16 h-16 bg-blue-600 rounded-[1.25rem] shadow-2xl shadow-blue-500/30 flex items-center justify-center text-white transition-all duration-300 active:scale-95 border-4 border-slate-50 dark:border-slate-950 hover:bg-blue-500"
+        className={`fixed bottom-32 right-6 z-50 w-16 h-16 bg-blue-600 rounded-[1.25rem] shadow-2xl shadow-blue-500/30 flex items-center justify-center text-white transition-all duration-300 border-4 border-slate-50 dark:border-slate-950 hover:bg-blue-500 ${
+          isFabVisible 
+            ? 'scale-100 opacity-100 translate-y-0' 
+            : 'scale-0 opacity-0 translate-y-12 pointer-events-none'
+        } active:scale-95`}
       >
         <Plus size={32} strokeWidth={2.5} />
       </button>
