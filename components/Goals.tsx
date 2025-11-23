@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
-import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal } from '../utils';
+import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
 import { Card } from './ui/Card';
 import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle } from './Icons';
 
@@ -20,7 +20,13 @@ export const Goals: React.FC<GoalsProps> = ({
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   
-  const today = new Date();
+  // Normalize today to start of day for consistent comparisons
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   const startDay = goalSettings.startDayOfMonth || 1;
   const endDay = goalSettings.endDayOfMonth;
 
@@ -37,6 +43,15 @@ export const Goals: React.FC<GoalsProps> = ({
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
 
   const isFutureView = startDate > currentCycleEnd;
+
+  // Check if there is any income transaction for TODAY with value > 0
+  const hasIncomeToday = useMemo(() => {
+    return transactions.some(t => 
+      t.type === 'income' && 
+      t.amount > 0 &&
+      isSameDay(parseDateLocal(t.date), today)
+    );
+  }, [transactions, today]);
 
   // Calculate Cycle Goal based on Fixed Expenses MINUS Fixed Income for the viewed period
   const cycleGoal = useMemo(() => {
@@ -117,7 +132,14 @@ export const Goals: React.FC<GoalsProps> = ({
         if (isCurrentCycleView) {
             const dTime = new Date(date).setHours(0,0,0,0);
             const tTime = new Date(today).setHours(0,0,0,0);
-            if (dTime >= tTime) workDays++;
+            
+            if (hasIncomeToday) {
+              // If we worked today (has income), we only count days STRICTLY AFTER today
+              if (dTime > tTime) workDays++;
+            } else {
+              // If we haven't worked today yet, today counts as a remaining day to earn money
+              if (dTime >= tTime) workDays++;
+            }
         } else {
             workDays++;
         }
@@ -133,9 +155,18 @@ export const Goals: React.FC<GoalsProps> = ({
 
   if (isCurrentCycleView) {
     dailyTarget = workDaysCount > 0 ? remainingAmount / workDaysCount : 0;
-    helperText = workDaysCount > 0 
-      ? `Para bater a meta em ${workDaysCount} dias restantes` 
-      : 'Meta finalizada ou dias esgotados';
+    
+    // Custom helper text logic
+    if (workDaysCount > 0) {
+      helperText = `Para bater a meta em ${workDaysCount} dias restantes`;
+    } else {
+      if (remainingAmount > 0) {
+        helperText = 'Sem dias restantes para a meta';
+      } else {
+        helperText = 'Meta finalizada';
+      }
+    }
+
   } else if (isFutureView) {
     dailyTarget = workDaysCount > 0 ? cycleGoal / workDaysCount : 0;
     helperText = `Previsão baseada em ${workDaysCount} dias de trabalho`;
