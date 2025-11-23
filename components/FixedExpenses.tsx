@@ -601,15 +601,15 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center">
           <div 
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
             onClick={() => setShowForm(false)}
           />
           
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md sm:rounded-[2.5rem] rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50 mb-2 sm:mb-0">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Editar' : 'Adicionar'} Item
               </h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
