@@ -26,7 +26,8 @@ import {
   Users,
   Activity,
   BarChart3,
-  Smartphone
+  Smartphone,
+  Info
 } from 'lucide-react';
 
 export { 
@@ -55,5 +56,6 @@ export {
   Users,
   Activity,
   BarChart3,
-  Smartphone
+  Smartphone,
+  Info
 };
