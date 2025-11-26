@@ -4,7 +4,7 @@ import { Card } from './ui/Card';
 import { ExpensePieChart } from './ui/PieChart';
 import { Transaction, TransactionType, ViewMode, FixedExpense } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal, getFixedExpensesForPeriod } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info, Utensils, Wrench, Home, AlertCircle, Smartphone, ShoppingBag, PieChart as PieIcon } from './Icons';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info, Utensils, Wrench, Home, AlertCircle, Smartphone, ShoppingBag, PieChart as PieIcon, Edit2 } from './Icons';
 import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -174,10 +174,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [transactions, today]);
 
   // Week's Balance (Current Week)
+  // Logic: STRICTLY INCOME ONLY (Gross Weekly), ignoring expenses per user request.
   const weekBalance = useMemo(() => {
     return transactions
       .filter(t => isSameWeek(parseDateLocal(t.date), today))
-      .reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+      .reduce((acc, t) => {
+        if (t.type === 'income') {
+          return acc + t.amount;
+        }
+        // Expenses are explicitly ignored for Week Balance
+        return acc; 
+      }, 0);
   }, [transactions, today]);
 
   // Month Balance (Based on selected Billing Cycle)
@@ -498,15 +505,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {t.type === 'expense' ? '- ' : '+ '}
                       {formatCurrency(t.amount)}
                     </span>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteTransaction(t.id);
-                      }}
-                      className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center -mr-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenForm(t);
+                        }}
+                        className="p-1.5 text-slate-300 hover:text-amber-500 transition-colors"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTransaction(t.id);
+                        }}
+                        className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
