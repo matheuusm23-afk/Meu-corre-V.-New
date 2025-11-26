@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
+import { ExpensePieChart } from './ui/PieChart';
 import { Transaction, TransactionType, ViewMode, FixedExpense } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal, getFixedExpensesForPeriod } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info } from './Icons';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info, Utensils, Wrench, Home, AlertCircle, Smartphone, ShoppingBag, PieChart as PieIcon } from './Icons';
 import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,7 +20,7 @@ interface DashboardProps {
 }
 
 const DELIVERY_APPS = ['iFood', '99', 'Rappi', 'Lalamove', 'Uber', 'Loggi', 'Borborema', 'Particular'];
-const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação', 'Aluguel', 'Financiamento', 'Multa', 'Outros'];
+const EXPENSE_CATEGORIES = ['Combustível', 'Manutenção', 'Alimentação', 'Aluguel', 'Financiamento', 'Gastos na Rua', 'Outros'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
@@ -116,6 +117,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return max > 0 ? max : 100; 
   }, [chartData]);
 
+  // Pie Chart Data (Expense Breakdown)
+  const expenseChartData = useMemo(() => {
+    const dataMap: Record<string, number> = {};
+    
+    currentPeriodTransactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const desc = t.description.toLowerCase();
+        let category = 'Outros';
+        
+        if (desc.includes('combustível') || desc.includes('gasolina') || desc.includes('posto') || desc.includes('diesel') || desc.includes('etanol')) category = 'Combustível';
+        else if (desc.includes('manutenção') || desc.includes('mecânico') || desc.includes('óleo') || desc.includes('pneu') || desc.includes('oficina')) category = 'Manutenção';
+        else if (desc.includes('alimentação') || desc.includes('comida') || desc.includes('lanche') || desc.includes('almoço') || desc.includes('jantar') || desc.includes('restaurante')) category = 'Alimentação';
+        else if (desc.includes('aluguel') || desc.includes('casa') || desc.includes('luz') || desc.includes('agua') || desc.includes('água')) category = 'Moradia';
+        else if (desc.includes('gastos na rua') || desc.includes('shopping') || desc.includes('compras')) category = 'Gastos na Rua';
+        else if (desc.includes('financiamento')) category = 'Financiamento';
+        
+        // Exclude Fuel from Pie Chart analysis per user request
+        if (category === 'Combustível') return;
+
+        dataMap[category] = (dataMap[category] || 0) + t.amount;
+      });
+
+    const colors: Record<string, string> = {
+      // 'Combustível': '#f97316', // orange-500 (Excluded)
+      'Manutenção': '#ef4444', // red-500
+      'Alimentação': '#10b981', // emerald-500
+      'Moradia': '#3b82f6', // blue-500
+      'Gastos na Rua': '#a855f7', // purple-500
+      'Financiamento': '#6366f1', // indigo-500
+      'Outros': '#94a3b8', // slate-400
+    };
+
+    return Object.entries(dataMap).map(([label, value]) => ({
+      label,
+      value,
+      color: colors[label] || colors['Outros']
+    }));
+  }, [currentPeriodTransactions]);
+
   // 6. Balances
   
   // Today's Balance (Strictly today)
@@ -187,6 +228,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const midPoint = new Date((startDate.getTime() + endDate.getTime()) / 2);
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
   }, [startDate, endDate]);
+
+  // --- HELPERS ---
+  const getTransactionIcon = (t: Transaction) => {
+    const text = t.description.toLowerCase();
+    
+    if (t.type === 'income') {
+       if (['ifood', '99', 'rappi', 'uber', 'loggi', 'lalamove', 'borborema'].some(app => text.includes(app))) {
+          return <Smartphone size={18} />;
+       }
+       return <Wallet size={18} />;
+    }
+    
+    // Expenses
+    if (text.includes('combustível') || text.includes('gasolina') || text.includes('etanol') || text.includes('posto') || text.includes('diesel')) return <Fuel size={18} />;
+    if (text.includes('manutenção') || text.includes('mecânico') || text.includes('peça') || text.includes('óleo') || text.includes('pneu')) return <Wrench size={18} />;
+    if (text.includes('alimentação') || text.includes('comida') || text.includes('lanche') || text.includes('restaurante') || text.includes('almoço') || text.includes('jantar')) return <Utensils size={18} />;
+    if (text.includes('aluguel') || text.includes('casa') || text.includes('luz') || text.includes('água')) return <Home size={18} />;
+    if (text.includes('multa') || text.includes('juros')) return <AlertCircle size={18} />;
+    if (text.includes('gastos na rua') || text.includes('compras') || text.includes('shopping')) return <ShoppingBag size={18} />;
+    
+    return <TrendingDown size={18} />;
+  };
 
   // --- HANDLERS ---
 
@@ -313,13 +376,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </Card>
 
-      {/* BAR CHART (Current Week Mon-Sun) */}
+      {/* MODERN BAR CHART (Current Week Mon-Sun) */}
       <div className="mt-2 px-2">
         <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-6 uppercase tracking-wider">
           Ganhos da Semana
         </h2>
         
-        <div className="grid grid-cols-7 gap-2 h-48 items-end pb-2">
+        <div className="grid grid-cols-7 gap-3 h-40 items-end pb-2 px-2">
             {chartData.map((day) => {
               const height = (day.income / maxChartValue) * 100;
               const isToday = isSameDay(day.date, today);
@@ -331,46 +394,67 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 : Math.floor(day.income).toString();
 
               return (
-                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-2 group">
+                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-3 group">
                   
                   {/* Bar Area (Includes Label + Track) */}
                   <div className="relative w-full flex-1 flex items-end justify-center">
                      
-                     {/* Floating Value Label */}
+                     {/* Floating Value Label - Refined */}
                      <div 
-                        className={`absolute bottom-0 mb-1 flex flex-col items-center transition-all duration-500 ease-out z-10 ${
-                            hasIncome ? 'opacity-100' : 'opacity-0'
+                        className={`absolute bottom-0 mb-2 flex flex-col items-center transition-all duration-500 ease-out z-10 ${
+                            hasIncome ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
                         }`}
                         style={{ bottom: `${Math.max(height, 0)}%` }}
                      >
-                        <span className={`text-[9px] font-bold whitespace-nowrap px-1 py-0.5 rounded bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700 ${
-                            isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
-                        }`}>
-                            R$ {displayValue}
-                        </span>
+                        <div className="relative">
+                           <span className={`text-[10px] font-bold whitespace-nowrap px-2 py-1 rounded-lg shadow-sm border ${
+                               isToday 
+                                 ? 'bg-emerald-600 text-white border-emerald-500' 
+                                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                           }`}>
+                               R$ {displayValue}
+                           </span>
+                           {/* Tiny arrow */}
+                           <div className={`absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 rotate-45 border-b border-r ${
+                               isToday 
+                                 ? 'bg-emerald-600 border-emerald-500' 
+                                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                           }`}></div>
+                        </div>
                      </div>
 
-                     {/* Bar Track */}
-                     <div className="w-3 sm:w-4 bg-slate-100 dark:bg-slate-800 rounded-full h-full relative overflow-hidden">
-                        {/* Filled Bar */}
+                     {/* Bar Track - Added background track */}
+                     <div className="w-5 sm:w-6 bg-slate-100/80 dark:bg-slate-800/50 rounded-full h-full relative overflow-hidden">
+                        {/* Filled Bar - Gradient and Thicker */}
                         <div 
-                           style={{ height: `${Math.max(height, 2)}%` }} 
-                           className={`w-full absolute bottom-0 transition-all duration-700 ease-out rounded-full ${
+                           style={{ height: `${Math.max(height, 4)}%` }} 
+                           className={`w-full absolute bottom-0 transition-all duration-700 ease-out rounded-t-lg rounded-b-sm ${
                               hasIncome 
-                              ? 'bg-emerald-500' 
+                              ? 'bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
                               : 'bg-transparent'
-                           } ${isToday ? 'ring-[2px] ring-emerald-200 dark:ring-emerald-900' : ''}`}
+                           } ${isToday ? 'ring-2 ring-emerald-200 dark:ring-emerald-900 ring-offset-1 dark:ring-offset-slate-950' : ''}`}
                         />
                      </div>
                   </div>
                   
                   {/* Day Label */}
-                  <div className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-blue-500' : 'text-slate-400'}`}>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isToday ? 'text-emerald-600 dark:text-emerald-400 scale-110' : 'text-slate-400'}`}>
                       {day.fullDay}
                   </div>
                 </div>
               );
             })}
+        </div>
+      </div>
+
+      {/* EXPENSES PIE CHART */}
+      <div className="mt-6 px-2">
+        <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+          <PieIcon size={14} />
+          Distribuição de Gastos
+        </h2>
+        <div className="bg-white/50 dark:bg-slate-900/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
+           <ExpensePieChart data={expenseChartData} />
         </div>
       </div>
 
@@ -402,7 +486,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' 
                         : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
                     }`}>
-                      {t.type === 'income' ? <Wallet size={18} /> : <Fuel size={18} />}
+                      {getTransactionIcon(t)}
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 dark:text-slate-100">{t.description}</p>

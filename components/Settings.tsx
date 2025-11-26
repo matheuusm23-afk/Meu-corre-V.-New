@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from './ui/Card';
 import { Trash2, Calendar, Edit2, Lock, X, Users, Activity, BarChart3, Smartphone, ChevronRight } from './Icons';
-import { GoalSettings } from '../types';
+import { GoalSettings, Transaction } from '../types';
+import { getISODate } from '../utils';
 
 interface SettingsProps {
   onClearData: () => void;
@@ -10,6 +11,7 @@ interface SettingsProps {
   onUpdateSettings: (s: GoalSettings) => void;
   currentTheme: 'light' | 'dark';
   onToggleTheme: () => void;
+  transactions: Transaction[];
 }
 
 export const Settings: React.FC<SettingsProps> = ({ 
@@ -17,7 +19,8 @@ export const Settings: React.FC<SettingsProps> = ({
   goalSettings, 
   onUpdateSettings,
   currentTheme,
-  onToggleTheme
+  onToggleTheme,
+  transactions
 }) => {
   const [showDevLogin, setShowDevLogin] = useState(false);
   const [showDevDashboard, setShowDevDashboard] = useState(false);
@@ -75,8 +78,30 @@ export const Settings: React.FC<SettingsProps> = ({
   const manualStartDay = isManualMode ? (goalSettings.endDayOfMonth! + 1) : null;
   const displayManualStartDay = manualStartDay && manualStartDay > 31 ? 1 : manualStartDay;
 
-  // Mock data for Dev Dashboard
-  const audienceData = [45, 62, 58, 81, 65, 92, 88]; // Last 7 days
+  // Real Analytics Data
+  const appVisits = typeof window !== 'undefined' ? (localStorage.getItem('app_visits') || '1') : '1';
+  const totalRecords = transactions.length;
+
+  // Calculate chart data from transactions (Last 7 Days)
+  const chartData = useMemo(() => {
+    const data = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = getISODate(d);
+      
+      const count = transactions.filter(t => t.date.startsWith(dateStr)).length;
+      
+      data.push({
+        label: new Intl.DateTimeFormat('pt-BR', { weekday: 'narrow' }).format(d).toUpperCase(),
+        value: count
+      });
+    }
+    return data;
+  }, [transactions]);
+
+  const maxChartValue = Math.max(...chartData.map(d => d.value), 5); // Ensure at least some height
 
   return (
     <div className="flex flex-col gap-6 pb-24 pt-8 px-2">
@@ -267,7 +292,7 @@ export const Settings: React.FC<SettingsProps> = ({
           <div className="sticky top-0 z-10 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800 p-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity className="text-emerald-400" />
-              Dev Analytics
+              Dev Analytics (Real)
             </h2>
             <button 
               onClick={() => setShowDevDashboard(false)}
@@ -286,10 +311,10 @@ export const Settings: React.FC<SettingsProps> = ({
                       <Users size={64} className="text-blue-500" />
                    </div>
                    <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Acessos Totais</div>
-                   <div className="text-3xl font-bold text-white">14.203</div>
+                   <div className="text-3xl font-bold text-white">{appVisits}</div>
                    <div className="text-emerald-500 text-xs font-medium flex items-center gap-1 mt-2">
                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                     App ativo
+                     App ativo (Local)
                    </div>
                 </div>
 
@@ -298,18 +323,22 @@ export const Settings: React.FC<SettingsProps> = ({
                       <Smartphone size={64} className="text-purple-500" />
                    </div>
                    <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Online Agora</div>
-                   <div className="text-3xl font-bold text-white">42</div>
+                   <div className="text-3xl font-bold text-white">1</div>
                    <div className="text-purple-400 text-xs font-medium mt-2">
-                     Tempo real
+                     Dispositivo Local
                    </div>
                 </div>
 
                 <div className="col-span-2 bg-slate-900 p-4 rounded-2xl border border-slate-800 relative overflow-hidden flex items-center justify-between">
                    <div>
-                      <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Cadastros Realizados</div>
-                      <div className="text-3xl font-bold text-white">3.592</div>
+                      <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Cadastros (Você)</div>
+                      <div className="text-3xl font-bold text-white">1</div>
                    </div>
-                   <div className="bg-slate-800 p-3 rounded-xl text-amber-500">
+                   <div className="bg-slate-800 p-3 rounded-xl text-amber-500 flex items-center gap-3">
+                      <div className="text-right">
+                         <div className="text-[10px] text-slate-400 uppercase font-bold">Total Lançamentos</div>
+                         <div className="text-sm font-bold text-white">{totalRecords}</div>
+                      </div>
                       <Users size={24} />
                    </div>
                 </div>
@@ -319,35 +348,34 @@ export const Settings: React.FC<SettingsProps> = ({
              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
                 <div className="flex items-center gap-3 mb-6">
                    <BarChart3 className="text-blue-500" size={20} />
-                   <h3 className="font-bold text-white">Audiência da Semana</h3>
+                   <h3 className="font-bold text-white">Atividade da Semana</h3>
                 </div>
                 
                 <div className="h-40 flex items-end justify-between gap-2">
-                   {audienceData.map((val, idx) => {
-                     const height = (val / 100) * 100;
+                   {chartData.map((data, idx) => {
+                     const height = (data.value / maxChartValue) * 100;
                      return (
                        <div key={idx} className="w-full flex flex-col items-center gap-2 group">
                           <div className="relative w-full bg-slate-800 rounded-t-lg overflow-hidden h-32 flex items-end">
                              <div 
-                               style={{ height: `${height}%` }}
-                               className="w-full bg-blue-600 group-hover:bg-blue-500 transition-colors"
+                               style={{ height: `${Math.max(height, 5)}%` }}
+                               className={`w-full transition-all duration-500 ${data.value > 0 ? 'bg-blue-600 group-hover:bg-blue-500' : 'bg-slate-700/50'}`}
                              />
                           </div>
                           <span className="text-[10px] text-slate-500 font-bold">
-                             {['D','S','T','Q','Q','S','S'][idx]}
+                             {data.label}
                           </span>
                        </div>
                      )
                    })}
                 </div>
                 <div className="mt-4 flex justify-between text-xs text-slate-500 font-medium pt-4 border-t border-slate-800">
-                   <span>Média diária: 70 acessos</span>
-                   <span className="text-emerald-500">+12% vs semana anterior</span>
+                   <span>Lançamentos últimos 7 dias</span>
                 </div>
              </div>
 
              <div className="text-center text-xs text-slate-600 mt-8">
-                Painel Administrativo v1.0 • Acesso Seguro
+                Painel Administrativo v1.1 • Dados Reais Locais
              </div>
           </div>
         </div>
