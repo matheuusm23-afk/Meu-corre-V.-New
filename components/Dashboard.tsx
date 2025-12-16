@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { ExpensePieChart } from './ui/PieChart';
 import { Transaction, TransactionType, ViewMode, FixedExpense } from '../types';
 import { formatCurrency, formatDate, isSameDay, isSameWeek, getBillingPeriodRange, getISODate, formatDateFull, getStartOfWeek, parseDateLocal, getFixedExpensesForPeriod } from '../utils';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Info, Utensils, Wrench, Home, AlertCircle, Smartphone, ShoppingBag, PieChart as PieIcon, Edit2 } from './Icons';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Trash2, Calendar, ChevronLeft, ChevronRight, Fuel, Utensils, Wrench, Home, AlertCircle, Smartphone, ShoppingBag, PieChart as PieIcon, Edit2 } from './Icons';
 import { Logo } from './ui/Logo';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -35,7 +34,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isFabVisible, setIsFabVisible] = useState(true);
-  const [showDayInfo, setShowDayInfo] = useState(false);
 
   // Form State
   const [amount, setAmount] = useState('');
@@ -330,17 +328,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
           title="Saldo do Dia" 
           value={formatCurrency(todayBalance)} 
           valueClassName="text-xl"
-          icon={
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDayInfo(!showDayInfo);
-              }}
-              className="flex items-center justify-center transition-colors hover:text-blue-500 focus:outline-none"
-            >
-              <Info size={16}/>
-            </button>
-          }
           variant={todayBalance >= 0 ? 'default' : 'danger'}
           className={todayBalance < 0 ? "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800" : ""}
         >
@@ -544,30 +531,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       >
         <Plus size={32} strokeWidth={2.5} />
       </button>
-
-      {/* Info Tooltip Overlay - Rendered OUTSIDE the Card/Scroll container */}
-      {showDayInfo && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={() => setShowDayInfo(false)}>
-           <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px]" />
-           <div 
-             className="relative bg-slate-800 dark:bg-slate-700 text-white p-4 rounded-2xl shadow-2xl max-w-xs text-center border border-slate-700 dark:border-slate-600 animate-in zoom-in-95"
-             onClick={(e) => e.stopPropagation()} 
-           >
-              <div className="flex justify-center mb-2 text-slate-400">
-                <Info size={24} />
-              </div>
-              <p className="text-sm font-medium leading-relaxed">
-                As despesas aplicadas no dia não serão descontado no valor do dia, somente no valor do mês.
-              </p>
-              <button 
-                onClick={() => setShowDayInfo(false)}
-                className="mt-4 text-xs font-bold text-slate-300 hover:text-white uppercase tracking-wider py-2 px-4 bg-slate-900/50 rounded-lg w-full"
-              >
-                Entendi
-              </button>
-           </div>
-        </div>
-      )}
 
       {/* Modal Form */}
       {showForm && (

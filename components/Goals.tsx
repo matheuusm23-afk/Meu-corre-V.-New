@@ -53,9 +53,12 @@ export const Goals: React.FC<GoalsProps> = ({
   // Calculate Cycle Goal based on Fixed Expenses MINUS Fixed Income for the viewed period
   const cycleGoal = useMemo(() => {
     const relevantExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    
+    // Only count expenses that are NOT marked as paid
     const totalExpenses = relevantExpenses
-      .filter(e => e.type !== 'income')
+      .filter(e => e.type !== 'income' && !e.isPaid)
       .reduce((acc, curr) => acc + curr.amount, 0);
+      
     const totalIncome = relevantExpenses
       .filter(e => e.type === 'income')
       .reduce((acc, curr) => acc + curr.amount, 0);
@@ -324,7 +327,7 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
         <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-300 bg-white/10 p-2 rounded-lg">
            <AlertCircle size={12} className="shrink-0 mt-0.5" />
-           <p>Valor definido automaticamente pelo total de Contas Fixas menos Receitas Fixas.</p>
+           <p>Valor atualizado conforme o pagamento das contas (Pendentes - Receitas).</p>
         </div>
       </Card>
 
