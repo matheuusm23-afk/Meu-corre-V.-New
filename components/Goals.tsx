@@ -43,28 +43,71 @@ export const Goals: React.FC<GoalsProps> = ({
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
   const isFutureView = startDate > currentCycleEnd;
 
-  // Calculate Income specifically for TODAY
+  // --- CALCULATIONS FOR THE SELECTED PERIOD ---
+
+  const relevantFixedItems = useMemo(() => 
+    getFixedExpensesForPeriod(fixedExpenses, startDate, endDate),
+    [fixedExpenses, startDate, endDate]
+  );
+
+  // 1. Meta do Mês (DYNAMICS: Discounts as user pays)
+  // Logic: (Unpaid Expenses) - (Fixed Incomes)
+  const metaDoMesDynamic = useMemo(() => {
+    const totalUnpaidExpenses = relevantFixedItems
+      .filter(e => e.type !== 'income' && !e.isPaid)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+      
+    const totalFixedIncome = relevantFixedItems
+      .filter(e => e.type === 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    return Math.max(0, totalUnpaidExpenses - totalFixedIncome);
+  }, [relevantFixedItems]);
+
+  // 2. Exact Total of Bills for the Month (GOAL)
+  // Logic: Sum of all expenses in the month, regardless of payment status
+  const totalBillsToCover = useMemo(() => {
+    const totalExpenses = relevantFixedItems
+      .filter(e => e.type !== 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+      
+    const totalFixedIncome = relevantFixedItems
+      .filter(e => e.type === 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    return Math.max(0, totalExpenses - totalFixedIncome);
+  }, [relevantFixedItems]);
+
+  // 3. Já Feito (PROGRESS)
+  // Logic: Manual Income - Manual Expenses (Net daily work profit)
+  const netWorkProfit = useMemo(() => {
+    return transactions
+      .filter(t => {
+        const tDate = parseDateLocal(t.date);
+        return tDate >= startDate && tDate <= endDate;
+      })
+      .reduce((acc, t) => {
+        return t.type === 'income' ? acc + t.amount : acc - t.amount;
+      }, 0);
+  }, [transactions, startDate, endDate]);
+
+  // 4. Falta (REMAINING TO EARN)
+  // Logic: Total Bills - Net Work Profit
+  const remainingToEarn = useMemo(() => {
+    return Math.max(0, totalBillsToCover - netWorkProfit);
+  }, [totalBillsToCover, netWorkProfit]);
+
+  // 5. Income specifically for TODAY (for Daily Target recalculation)
   const incomeToday = useMemo(() => {
     return transactions
       .filter(t => t.type === 'income' && isSameDay(parseDateLocal(t.date), today))
       .reduce((acc, t) => acc + t.amount, 0);
   }, [transactions, today]);
 
-  // Calculate Cycle Goal based on Fixed Expenses MINUS Fixed Income for the viewed period
-  const cycleGoal = useMemo(() => {
-    const relevantExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
-    
-    // Only count expenses that are NOT marked as paid
-    const totalExpenses = relevantExpenses
-      .filter(e => e.type !== 'income' && !e.isPaid)
-      .reduce((acc, curr) => acc + curr.amount, 0);
-      
-    const totalIncome = relevantExpenses
-      .filter(e => e.type === 'income')
-      .reduce((acc, curr) => acc + curr.amount, 0);
-
-    return Math.max(0, totalExpenses - totalIncome);
-  }, [fixedExpenses, startDate, endDate]);
+  // Labels and Progress
+  const progressPercent = totalBillsToCover > 0 
+    ? Math.max(0, Math.min(100, (netWorkProfit / totalBillsToCover) * 100))
+    : (netWorkProfit >= 0 ? 100 : 0);
 
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -81,34 +124,6 @@ export const Goals: React.FC<GoalsProps> = ({
     newDate.setMonth(newDate.getMonth() + offset);
     setViewDate(newDate);
   };
-
-  const currentPeriodBalance = useMemo(() => {
-    // 1. Manual Transactions Balance
-    const manualBalance = transactions
-      .filter(t => {
-        const tDate = parseDateLocal(t.date);
-        return tDate >= startDate && tDate <= endDate;
-      })
-      .reduce((acc, t) => {
-        if (t.type === 'income') return acc + t.amount;
-        if (t.type === 'expense') return acc - t.amount;
-        return acc;
-      }, 0);
-
-    // 2. Paid Fixed Expenses for this period (Subtract from balance)
-    const relevantFixedExpenses = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
-    const paidFixedExpensesTotal = relevantFixedExpenses
-      .filter(e => e.type !== 'income' && e.isPaid)
-      .reduce((acc, e) => acc + e.amount, 0);
-
-    return manualBalance - paidFixedExpensesTotal;
-  }, [transactions, fixedExpenses, startDate, endDate]);
-
-  const remainingAmount = Math.max(0, cycleGoal - currentPeriodBalance);
-  
-  const progressPercent = cycleGoal > 0 
-    ? Math.max(0, Math.min(100, (currentPeriodBalance / cycleGoal) * 100))
-    : (currentPeriodBalance >= 0 ? 100 : 0);
 
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
@@ -144,7 +159,7 @@ export const Goals: React.FC<GoalsProps> = ({
         } else {
             // For future/past views, just count total
         }
-        totalInCycle++; // Approximate total for other views
+        totalInCycle++; 
       }
     });
 
@@ -160,28 +175,17 @@ export const Goals: React.FC<GoalsProps> = ({
   let cardVariant: 'default' | 'success' | 'danger' = 'default';
 
   if (isCurrentCycleView) {
-    // 1. Calculate Baseline (Start of Day State)
-    // To know if we "hit" the goal, we need to know what the goal WAS at 00:00 today.
-    // Baseline Remaining = Current Remaining + Income Today
-    // Baseline Days = Future Days + (1 if today is workday)
-    const baselineRemaining = remainingAmount + incomeToday;
+    // 1. Baseline Target (at the start of today)
+    // Baseline Remaining = How much was missing before working today
+    const baselineRemaining = remainingToEarn + incomeToday;
     const baselineDays = workDaysDetails.futureDays + (workDaysDetails.isTodayWorkDay ? 1 : 0);
     const startOfDayTarget = baselineDays > 0 ? baselineRemaining / baselineDays : 0;
 
-    // 2. Determine Current State
+    // 2. State Comparison
     if (incomeToday > 0) {
-       // SCENARIO: WORKED TODAY
-       // The target displayed should be the RECALCULATED target for tomorrow onwards.
-       // Remaining Amount is already updated (lower).
-       // Days count should be FUTURE days only.
-       
        const futureDays = workDaysDetails.futureDays;
+       dailyTargetDisplay = futureDays > 0 ? remainingToEarn / futureDays : remainingToEarn;
        
-       // If no future days left, target is 0 (or simply remaining if any)
-       dailyTargetDisplay = futureDays > 0 ? remainingAmount / futureDays : remainingAmount;
-       
-       // Feedback Logic
-       // Check if we hit the "Start of Day" target
        const hitGoal = incomeToday >= startOfDayTarget;
        
        if (hitGoal) {
@@ -200,7 +204,6 @@ export const Goals: React.FC<GoalsProps> = ({
           );
        }
        
-       // Comparison Breakdown
        comparisonNode = (
           <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-white/50 dark:bg-slate-900/50 rounded-xl text-xs border border-slate-200/50 dark:border-slate-700/50">
              <div>
@@ -219,14 +222,8 @@ export const Goals: React.FC<GoalsProps> = ({
        helperText = futureDays > 0 
           ? `Nova meta para os ${futureDays} dias restantes`
           : 'Ciclo finalizado!';
-
     } else {
-       // SCENARIO: HAVEN'T WORKED YET
-       // The target displayed is the Start of Day Target.
-       // Days count includes today.
-       
        dailyTargetDisplay = startOfDayTarget;
-       
        helperText = baselineDays > 0 
           ? `Para bater a meta em ${baselineDays} dias (incluindo hoje)` 
           : 'Sem dias úteis restantes';
@@ -234,10 +231,9 @@ export const Goals: React.FC<GoalsProps> = ({
 
   } else if (isFutureView) {
     const totalDays = workDaysDetails.totalInCycle;
-    dailyTargetDisplay = totalDays > 0 ? cycleGoal / totalDays : 0;
+    dailyTargetDisplay = totalDays > 0 ? totalBillsToCover / totalDays : 0;
     helperText = `Previsão baseada em ${totalDays} dias de trabalho`;
   } else {
-    // Past View
     dailyTargetDisplay = 0;
     helperText = 'Ciclo encerrado';
   }
@@ -303,7 +299,7 @@ export const Goals: React.FC<GoalsProps> = ({
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
        <header className="px-2">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas & Foco 🎯</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Planeje seu corre.</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Acompanhe seu progresso.</p>
       </header>
 
       <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
@@ -319,43 +315,43 @@ export const Goals: React.FC<GoalsProps> = ({
         </button>
       </div>
 
-      <Card title="Meta do Mês (Contas Fixas)" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
+      <Card title="Contas Pendentes" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
         <div className="flex items-center gap-3 mt-2">
           <div className="text-3xl font-bold text-white w-full">
-            {formatCurrency(cycleGoal)}
+            {formatCurrency(metaDoMesDynamic)}
           </div>
         </div>
         <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-300 bg-white/10 p-2 rounded-lg">
            <AlertCircle size={12} className="shrink-0 mt-0.5" />
-           <p>Valor atualizado conforme o pagamento das contas (Pendentes - Receitas).</p>
+           <p>Valor atualizado conforme o pagamento das contas.</p>
         </div>
       </Card>
 
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-5">
           <Card title="Já Feito">
-            <div className={`text-xl font-bold mt-1 tracking-tight ${currentPeriodBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {formatCurrency(currentPeriodBalance)}
+            <div className={`text-xl font-bold mt-1 tracking-tight ${netWorkProfit < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {formatCurrency(netWorkProfit)}
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 mt-3 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
               <div className="bg-emerald-500 h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${progressPercent}%` }}></div>
             </div>
             <div className="text-[10px] text-slate-400 font-medium mt-2">
-              {Math.round(progressPercent)}% concluído
+              {Math.round(progressPercent)}% das contas cobertas
             </div>
           </Card>
           <Card title="Falta">
             <div className="text-slate-800 dark:text-slate-200 text-xl font-bold mt-1 tracking-tight">
-              {formatCurrency(remainingAmount)}
+              {formatCurrency(remainingToEarn)}
             </div>
             <div className="text-xs text-slate-400 mt-3">
-              Força no corre! 🏍️
+              Para quitar tudo! 🏍️
             </div>
           </Card>
         </div>
       )}
 
-      {/* Daily Goal Card with Feedback Logic */}
+      {/* Daily Goal Card */}
       <Card 
         title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} 
         className={`${
