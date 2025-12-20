@@ -1,5 +1,4 @@
 
-
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
@@ -12,6 +11,12 @@ export interface Transaction {
 
 export type RecurrenceType = 'monthly' | 'installments' | 'single';
 
+export interface CreditCard {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface FixedExpense {
   id: string;
   title: string;
@@ -23,6 +28,7 @@ export interface FixedExpense {
   type?: 'income' | 'expense'; // Added to support fixed incomes. Defaults to 'expense' if undefined.
   excludedDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were deleted
   paidDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were marked as paid
+  cardId?: string; // Optional reference to a CreditCard
 }
 
 export interface GoalSettings {

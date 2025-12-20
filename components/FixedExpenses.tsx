@@ -1,12 +1,14 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { FixedExpense, RecurrenceType } from '../types';
+import { FixedExpense, RecurrenceType, CreditCard } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard, CheckCircle2 } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2 } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
   fixedExpenses: FixedExpense[];
+  creditCards: CreditCard[];
   startDayOfMonth: number;
   endDayOfMonth?: number;
   onAddExpense: (expense: FixedExpense) => void;
@@ -85,6 +87,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onToggl
 
 export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   fixedExpenses,
+  creditCards,
   startDayOfMonth,
   endDayOfMonth,
   onAddExpense,
@@ -105,6 +108,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [formDate, setFormDate] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
   const [installments, setInstallments] = useState('12');
+  const [selectedCardId, setSelectedCardId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -135,13 +139,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   };
 
   const activeItems = useMemo(() => {
-    // Only filter for expenses, ignore any existing fixed incomes
     return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate).filter(i => i.type !== 'income');
   }, [fixedExpenses, startDate, endDate]);
 
   const activeExpenses = activeItems;
 
   const creditCardExpenses = useMemo(() => activeExpenses.filter(i => 
+    i.cardId ||
     i.title.toLowerCase().includes('cartão') || 
     i.category.toLowerCase().includes('cartão') ||
     i.title.toLowerCase().includes('fatura') ||
@@ -169,7 +173,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       installments: recurrence === 'installments' ? parseInt(installments) : undefined,
       type: 'expense',
       excludedDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.excludedDates : [],
-      paidDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.paidDates : []
+      paidDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.paidDates : [],
+      cardId: (category === 'Cartão' || title.toLowerCase().includes('cartão')) ? selectedCardId : undefined
     };
 
     if (editingId) {
@@ -190,14 +195,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setFormDate('');
     setRecurrence('monthly');
     setInstallments('12');
+    setSelectedCardId(undefined);
   };
 
   const handleQuickCategory = (cat: string) => {
-    if (cat === 'Cartão') {
-      setCategory('Cartão');
-    } else {
-      setTitle(cat);
-      setCategory(cat);
+    setCategory(cat);
+    if (cat !== 'Cartão') {
+       setTitle(cat);
     }
   };
 
@@ -220,6 +224,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setRecurrence(item.recurrence);
     setInstallments(item.installments ? item.installments.toString() : '12');
     setFormDate(item.startDate);
+    setSelectedCardId(item.cardId);
     setShowForm(true);
   };
 
@@ -265,7 +270,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const renderList = (items: typeof activeItems) => (
     <div className="space-y-3">
        {items.map(item => {
-         const isCreditCard = (
+         const card = creditCards.find(c => c.id === item.cardId);
+         const isCreditCard = !!item.cardId || (
             item.title.toLowerCase().includes('cartão') || 
             item.category.toLowerCase().includes('cartão') ||
             item.title.toLowerCase().includes('fatura') ||
@@ -298,7 +304,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
                     : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
-                  {isCreditCard ? <CreditCard size={18} /> : <Receipt size={18} />}
+                  {isCreditCard ? <CardIcon size={18} /> : <Receipt size={18} />}
                   
                   {item.isPaid && (
                       <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
@@ -308,9 +314,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                </div>
                <div className="min-w-0 flex-1">
                   {isCreditCard && (
-                    <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
-                      Cartão de Crédito
-                    </p>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                       <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider leading-none truncate">
+                         Cartão de Crédito
+                       </p>
+                       {card && (
+                         <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
+                            {card.name}
+                         </span>
+                       )}
+                    </div>
                   )}
                   <p className={`font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight ${item.isPaid ? 'line-through decoration-emerald-500/50' : ''}`}>
                       {item.title}
@@ -413,7 +426,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
              <div className="flex flex-col h-full justify-between">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-1.5">
-                    <CreditCard size={10} />
+                    <CardIcon size={10} />
                     Cartão
                   </div>
                   <div className="text-xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
@@ -443,7 +456,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-                        <CreditCard size={18} />
+                        <CardIcon size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
@@ -500,7 +513,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             <div className="flex-1 overflow-y-auto p-4 pb-32">
                  <div className="bg-gradient-to-br from-purple-600 to-violet-800 rounded-[2rem] p-6 text-white shadow-xl shadow-purple-500/20 mb-6">
                     <div className="flex items-center gap-3 mb-2 opacity-80">
-                        <CreditCard size={18} />
+                        <CardIcon size={18} />
                         <span className="text-sm font-bold uppercase tracking-wider">Fatura Atual</span>
                     </div>
                     <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
@@ -514,7 +527,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                      renderList(creditCardExpenses)
                  ) : (
                      <div className="text-center py-10 text-slate-400">
-                        <CreditCard size={48} className="mx-auto mb-4 opacity-20" />
+                        <CardIcon size={48} className="mx-auto mb-4 opacity-20" />
                         <p>Nenhum lançamento de cartão neste período.</p>
                      </div>
                  )}
@@ -595,6 +608,35 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   ))}
                 </div>
               </div>
+
+              {(category === 'Cartão' || title.toLowerCase().includes('cartão')) && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Selecione o Cartão</label>
+                   {creditCards.length > 0 ? (
+                     <div className="grid grid-cols-2 gap-2 mt-1">
+                        {creditCards.map(card => (
+                          <button
+                            key={card.id}
+                            type="button"
+                            onClick={() => setSelectedCardId(card.id)}
+                            className={`flex items-center gap-2 p-2 rounded-xl border text-[10px] font-bold transition-all ${
+                              selectedCardId === card.id 
+                                ? 'bg-purple-100 border-purple-500 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' 
+                                : 'bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400'
+                            }`}
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
+                            {card.name}
+                          </button>
+                        ))}
+                     </div>
+                   ) : (
+                     <p className="text-[10px] text-rose-500 italic mt-1 bg-rose-50 dark:bg-rose-900/20 p-2 rounded-lg">
+                       Crie cartões nas configurações para selecioná-los aqui.
+                     </p>
+                   )}
+                </div>
+              )}
 
               <div className="bg-slate-50 dark:bg-slate-950 p-1 rounded-xl grid grid-cols-3 gap-1">
                 <button

@@ -5,7 +5,7 @@ import { Goals } from './components/Goals';
 import { Settings } from './components/Settings';
 import { FixedExpenses } from './components/FixedExpenses';
 import { BottomNav } from './components/ui/BottomNav';
-import { Transaction, GoalSettings, ViewMode, FixedExpense } from './types';
+import { Transaction, GoalSettings, ViewMode, FixedExpense, CreditCard } from './types';
 
 type Theme = 'light' | 'dark';
 
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   // Global State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
+  const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [goalSettings, setGoalSettings] = useState<GoalSettings>({
     monthlyGoal: 3000, 
     monthlyGoals: {}, 
@@ -37,9 +38,11 @@ const App: React.FC = () => {
     const savedTx = localStorage.getItem('transactions');
     const savedGoals = localStorage.getItem('goalSettings');
     const savedFixed = localStorage.getItem('fixedExpenses');
+    const savedCards = localStorage.getItem('creditCards');
     
     if (savedTx) setTransactions(JSON.parse(savedTx));
     if (savedFixed) setFixedExpenses(JSON.parse(savedFixed));
+    if (savedCards) setCreditCards(JSON.parse(savedCards));
     if (savedGoals) {
       const parsed = JSON.parse(savedGoals);
       setGoalSettings({
@@ -67,6 +70,10 @@ const App: React.FC = () => {
     localStorage.setItem('fixedExpenses', JSON.stringify(fixedExpenses));
   }, [fixedExpenses]);
 
+  useEffect(() => {
+    localStorage.setItem('creditCards', JSON.stringify(creditCards));
+  }, [creditCards]);
+
   // Theme Effect
   useEffect(() => {
     const root = window.document.documentElement;
@@ -89,7 +96,6 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTransaction = (id: string) => {
-    // Confirmation is handled in the UI components
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
@@ -102,13 +108,23 @@ const App: React.FC = () => {
   };
 
   const handleDeleteFixedExpense = (id: string) => {
-    // Confirmation is handled in the UI components
     setFixedExpenses(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleAddCard = (card: CreditCard) => {
+    setCreditCards(prev => [...prev, card]);
+  };
+
+  const handleDeleteCard = (id: string) => {
+    setCreditCards(prev => prev.filter(c => c.id !== id));
+    // Optionally remove cardId reference from fixedExpenses
+    setFixedExpenses(prev => prev.map(e => e.cardId === id ? { ...e, cardId: undefined } : e));
   };
 
   const handleClearData = () => {
     setTransactions([]);
     setFixedExpenses([]);
+    setCreditCards([]);
     setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1 });
     localStorage.clear();
   };
@@ -139,6 +155,7 @@ const App: React.FC = () => {
         {currentView === 'fixed-expenses' && (
           <FixedExpenses 
             fixedExpenses={fixedExpenses}
+            creditCards={creditCards}
             startDayOfMonth={goalSettings.startDayOfMonth}
             endDayOfMonth={goalSettings.endDayOfMonth}
             onAddExpense={handleAddFixedExpense}
@@ -154,6 +171,9 @@ const App: React.FC = () => {
             currentTheme={theme}
             onToggleTheme={toggleTheme}
             transactions={transactions}
+            creditCards={creditCards}
+            onAddCard={handleAddCard}
+            onDeleteCard={handleDeleteCard}
           />
         )}
       </main>
