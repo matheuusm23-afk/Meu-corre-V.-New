@@ -50,22 +50,6 @@ export const Goals: React.FC<GoalsProps> = ({
     [fixedExpenses, startDate, endDate]
   );
 
-  // 1. Meta do Mês (DYNAMICS: Discounts as user pays)
-  // Logic: (Unpaid Expenses) - (Fixed Incomes)
-  const metaDoMesDynamic = useMemo(() => {
-    const totalUnpaidExpenses = relevantFixedItems
-      .filter(e => e.type !== 'income' && !e.isPaid)
-      .reduce((acc, curr) => acc + curr.amount, 0);
-      
-    const totalFixedIncome = relevantFixedItems
-      .filter(e => e.type === 'income')
-      .reduce((acc, curr) => acc + curr.amount, 0);
-
-    return Math.max(0, totalUnpaidExpenses - totalFixedIncome);
-  }, [relevantFixedItems]);
-
-  // 2. Exact Total of Bills for the Month (GOAL)
-  // Logic: Sum of all expenses in the month, regardless of payment status
   const totalBillsToCover = useMemo(() => {
     const totalExpenses = relevantFixedItems
       .filter(e => e.type !== 'income')
@@ -78,8 +62,6 @@ export const Goals: React.FC<GoalsProps> = ({
     return Math.max(0, totalExpenses - totalFixedIncome);
   }, [relevantFixedItems]);
 
-  // 3. Já Feito (PROGRESS)
-  // Logic: Manual Income - Manual Expenses (Net daily work profit)
   const netWorkProfit = useMemo(() => {
     return transactions
       .filter(t => {
@@ -91,20 +73,16 @@ export const Goals: React.FC<GoalsProps> = ({
       }, 0);
   }, [transactions, startDate, endDate]);
 
-  // 4. Falta (REMAINING TO EARN)
-  // Logic: Total Bills - Net Work Profit
   const remainingToEarn = useMemo(() => {
     return Math.max(0, totalBillsToCover - netWorkProfit);
   }, [totalBillsToCover, netWorkProfit]);
 
-  // 5. Income specifically for TODAY (for Daily Target recalculation)
   const incomeToday = useMemo(() => {
     return transactions
       .filter(t => t.type === 'income' && isSameDay(parseDateLocal(t.date), today))
       .reduce((acc, t) => acc + t.amount, 0);
   }, [transactions, today]);
 
-  // Labels and Progress
   const progressPercent = totalBillsToCover > 0 
     ? Math.max(0, Math.min(100, (netWorkProfit / totalBillsToCover) * 100))
     : (netWorkProfit >= 0 ? 100 : 0);
@@ -127,10 +105,9 @@ export const Goals: React.FC<GoalsProps> = ({
 
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
-    const curr = new Date(startDate);
-    const maxIterations = 90; 
+    const iter = new Date(startDate);
+    const maxIterations = 45; 
     let count = 0;
-    const iter = new Date(curr);
     while (iter <= endDate && count < maxIterations) {
       days.push(new Date(iter));
       iter.setDate(iter.getDate() + 1);
@@ -139,9 +116,8 @@ export const Goals: React.FC<GoalsProps> = ({
     return days;
   }, [startDate, endDate]);
 
-  // Calculate workdays details
   const workDaysDetails = useMemo(() => {
-    let futureDays = 0; // Strictly future
+    let futureDays = 0; 
     let isTodayWorkDay = false;
     let totalInCycle = 0;
 
@@ -156,8 +132,6 @@ export const Goals: React.FC<GoalsProps> = ({
             
             if (dTime > tTime) futureDays++;
             if (dTime === tTime) isTodayWorkDay = true;
-        } else {
-            // For future/past views, just count total
         }
         totalInCycle++; 
       }
@@ -166,8 +140,6 @@ export const Goals: React.FC<GoalsProps> = ({
     return { futureDays, isTodayWorkDay, totalInCycle };
   }, [calendarDays, goalSettings.daysOff, isCurrentCycleView, today]);
 
-  // --- Daily Target Logic ---
-
   let dailyTargetDisplay = 0;
   let helperText = '';
   let messageNode = null;
@@ -175,13 +147,10 @@ export const Goals: React.FC<GoalsProps> = ({
   let cardVariant: 'default' | 'success' | 'danger' = 'default';
 
   if (isCurrentCycleView) {
-    // 1. Baseline Target (at the start of today)
-    // Baseline Remaining = How much was missing before working today
     const baselineRemaining = remainingToEarn + incomeToday;
     const baselineDays = workDaysDetails.futureDays + (workDaysDetails.isTodayWorkDay ? 1 : 0);
     const startOfDayTarget = baselineDays > 0 ? baselineRemaining / baselineDays : 0;
 
-    // 2. State Comparison
     if (incomeToday > 0) {
        const futureDays = workDaysDetails.futureDays;
        dailyTargetDisplay = futureDays > 0 ? remainingToEarn / futureDays : remainingToEarn;
@@ -256,14 +225,20 @@ export const Goals: React.FC<GoalsProps> = ({
     const gridItems = [];
     const firstDayOfWeek = startDate.getDay();
     
+    // Consistent structure for empty cells
     for (let i = 0; i < firstDayOfWeek; i++) {
-       gridItems.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
+       gridItems.push(<div key={`empty-${i}`} className="w-full aspect-square"></div>);
     }
 
-    calendarDays.forEach((date) => {
+    calendarDays.forEach((date, index) => {
       const dateStr = getISODate(date);
       const dayNum = date.getDate();
+      
+      // Mostrar rótulo do mês no primeiro dia do ciclo e quando o mês vira (dia 1)
+      const isFirstDayOfCycle = index === 0;
       const isFirstOfMonth = dayNum === 1;
+      const showMonthLabel = isFirstDayOfCycle || isFirstOfMonth;
+
       const isOff = goalSettings.daysOff.includes(dateStr);
       const isToday = date.toDateString() === today.toDateString();
       const isPast = date < new Date(new Date().setHours(0,0,0,0));
@@ -273,15 +248,17 @@ export const Goals: React.FC<GoalsProps> = ({
           key={dateStr}
           onClick={() => (!isCurrentCycleView || !isPast) && handleDayClick(date)}
           className={`
-            relative h-12 w-full aspect-square rounded-2xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all duration-200 border border-transparent
+            relative w-full aspect-square rounded-2xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all duration-200 border border-transparent
             ${isPast ? 'opacity-40 grayscale cursor-not-allowed bg-slate-100 dark:bg-slate-800/50' : ''}
             ${isToday ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-slate-900 z-10 shadow-lg' : ''}
             ${!isPast && isOff ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' : ''}
             ${!isPast && !isOff ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:scale-105 active:scale-95' : ''}
           `}
         >
-          {isFirstOfMonth && (
-             <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase bg-slate-900 text-white px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap z-20">
+          {showMonthLabel && (
+             <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shadow-sm whitespace-nowrap z-20 ${
+               isFirstDayOfCycle ? 'bg-amber-500 text-white' : 'bg-slate-900 text-white'
+             }`}>
                {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
              </span>
           )}
@@ -315,18 +292,6 @@ export const Goals: React.FC<GoalsProps> = ({
         </button>
       </div>
 
-      <Card title="Contas Pendentes" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl shadow-slate-900/20">
-        <div className="flex items-center gap-3 mt-2">
-          <div className="text-3xl font-bold text-white w-full">
-            {formatCurrency(metaDoMesDynamic)}
-          </div>
-        </div>
-        <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-300 bg-white/10 p-2 rounded-lg">
-           <AlertCircle size={12} className="shrink-0 mt-0.5" />
-           <p>Valor atualizado conforme o pagamento das contas.</p>
-        </div>
-      </Card>
-
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-5">
           <Card title="Já Feito">
@@ -351,7 +316,6 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
       )}
 
-      {/* Daily Goal Card */}
       <Card 
         title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} 
         className={`${
@@ -399,14 +363,14 @@ export const Goals: React.FC<GoalsProps> = ({
         subtitle={`Toque para marcar folgas`} 
         icon={<CalIcon className="text-slate-400"/>}
       >
-        <div className="mt-4">
+        <div className="mt-4 overflow-hidden">
           <div className="grid grid-cols-7 gap-2 mb-3 text-center">
              {['D','S','T','Q','Q','S','S'].map((d, i) => (
                <div key={i} className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{d}</div>
              ))}
           </div>
           
-          <div className="grid grid-cols-7 gap-2 place-items-center">
+          <div className="grid grid-cols-7 gap-2 place-items-center pb-2">
              {renderCalendarGrid()}
           </div>
           

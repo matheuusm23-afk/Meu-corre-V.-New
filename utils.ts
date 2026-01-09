@@ -1,5 +1,4 @@
 
-
 import { FixedExpense } from './types';
 
 export const formatCurrency = (value: number) => {
@@ -26,7 +25,6 @@ export const formatDateFull = (dateStr: string) => {
   }).format(d);
 };
 
-// Helper to get ISO date part only YYYY-MM-DD
 export const getISODate = (date: Date) => {
   const offset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -43,8 +41,8 @@ export const isSameDay = (d1: Date, d2: Date) => {
 
 export const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
-  const day = d.getDay(); // 0 (Sun) to 6 (Sat)
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when week starts (Monday)
+  const day = d.getDay(); 
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const newDate = new Date(d.setDate(diff));
   newDate.setHours(0, 0, 0, 0);
   return newDate;
@@ -73,41 +71,44 @@ export const getDaysInMonth = (year: number, month: number) => {
   return new Date(year, month + 1, 0).getDate();
 };
 
-/**
- * Helper to get a date clamped to the number of days in that month.
- * e.g. getCycleStartDate(2024, 1, 31) returns Feb 29, 2024 (Leap year) instead of Mar 2.
- */
 export const getCycleStartDate = (year: number, month: number, startDay: number) => {
   const maxDays = new Date(year, month + 1, 0).getDate();
   const day = Math.min(startDay, maxDays);
-  return new Date(year, month, day);
+  const date = new Date(year, month, day);
+  date.setHours(0, 0, 0, 0);
+  return date;
 };
 
 /**
- * Calculates the start and end date of the billing period for a given reference date.
- * Supports automatic (contiguous) cycles or custom start/end days.
+ * Calcula o intervalo do período de faturamento.
+ * Ex: Se começa dia 11 de Jan, termina dia 10 de Fev.
  */
 export const getBillingPeriodRange = (referenceDate: Date, startDay: number, explicitEndDay?: number) => {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
   
-  // AUTO MODE: If no explicit end day, use standard logic (End = Start - 1)
+  // Normalize reference date to start of day for accurate comparison
+  const ref = new Date(referenceDate);
+  ref.setHours(0, 0, 0, 0);
+
   if (explicitEndDay === undefined) {
-    const currentMonthCycleStart = getCycleStartDate(year, month, startDay);
+    const currentMonthStart = getCycleStartDate(year, month, startDay);
     
     let startDate: Date;
     let endDate: Date;
 
-    if (referenceDate.getTime() >= currentMonthCycleStart.getTime()) {
-      // We are in the cycle that started this month
-      startDate = currentMonthCycleStart;
-      const nextMonthCycleStart = getCycleStartDate(year, month + 1, startDay);
-      endDate = new Date(nextMonthCycleStart);
+    if (ref.getTime() >= currentMonthStart.getTime()) {
+      // Período que começou NESTE mês (ex: 11 Jan)
+      startDate = currentMonthStart;
+      // Termina no dia anterior ao início do próximo ciclo (ex: 10 Fev)
+      const nextMonthStart = getCycleStartDate(year, month + 1, startDay);
+      endDate = new Date(nextMonthStart);
       endDate.setDate(endDate.getDate() - 1);
     } else {
-      // We are in the cycle that started LAST month
+      // Período que começou no mês PASSADO (ex: 11 Dez)
       startDate = getCycleStartDate(year, month - 1, startDay);
-      endDate = new Date(currentMonthCycleStart);
+      // Termina no dia anterior ao ciclo atual (ex: 10 Jan)
+      endDate = new Date(currentMonthStart);
       endDate.setDate(endDate.getDate() - 1);
     }
 
@@ -117,27 +118,18 @@ export const getBillingPeriodRange = (referenceDate: Date, startDay: number, exp
     return { startDate, endDate };
   }
 
-  // MANUAL MODE (Linked Logic)
-  // Rule: If Closing Day is X, Start Day is ALWAYS X + 1.
-  
+  // MODO MANUAL (Fim de Ciclo definido pelo usuário)
   const closingDay = explicitEndDay;
-  const derivedStartDay = closingDay + 1;
-
-  // Check the Closing Date for the CURRENT calendar month of the reference date.
   const closingDateThisMonth = getCycleStartDate(year, month, closingDay);
   
   let startDate: Date;
   let endDate: Date;
 
-  if (referenceDate.getTime() > closingDateThisMonth.setHours(23, 59, 59, 999)) {
-    // We are PAST the closing date of this month.
-    // Cycle is: Start [Day+1] of This Month -> End [Day] of Next Month.
-    startDate = getCycleStartDate(year, month, derivedStartDay);
+  if (ref.getTime() > closingDateThisMonth.getTime()) {
+    startDate = getCycleStartDate(year, month, closingDay + 1);
     endDate = getCycleStartDate(year, month + 1, closingDay);
   } else {
-    // We are BEFORE or ON the closing date of this month.
-    // Cycle is: Start [Day+1] of Last Month -> End [Day] of This Month.
-    startDate = getCycleStartDate(year, month - 1, derivedStartDay);
+    startDate = getCycleStartDate(year, month - 1, closingDay + 1);
     endDate = getCycleStartDate(year, month, closingDay);
   }
 
@@ -153,94 +145,61 @@ export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, st
   return check.getTime() >= startDate.getTime() && check.getTime() <= endDate.getTime();
 };
 
-/**
- * Helper to safely parse YYYY-MM-DD (or ISO) to a Local Date object (00:00:00)
- * Correctly handles strings to avoid UTC timezone shifts.
- */
 export const parseDateLocal = (dateStr: string) => {
-  // Handle full ISO strings by taking the first part
   const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
   const [y, m, d] = cleanDateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
 
-/**
- * Returns the list of fixed expenses that are active for a given billing cycle period.
- */
 export const getFixedExpensesForPeriod = (
   expenses: FixedExpense[], 
   periodStart: Date, 
   periodEnd: Date
 ) => {
   return expenses.map(expense => {
-    // Use local parsing to ensure YYYY-MM-DD matches the local date period start/end
     const startDate = parseDateLocal(expense.startDate);
-    
-    // If expense starts after this period ends, it doesn't count
     if (startDate > periodEnd) return null;
-
-    // CHECK FOR EXCLUDED DATES (Deleted occurrences)
-    // We need to calculate the "theoretical" occurrence date for this specific period 
-    // to check if it was excluded by the user.
 
     let currentOccurrenceDate: Date | null = null;
 
     if (expense.recurrence === 'single') {
-      // For single expenses, the startDate IS the occurrence date.
       if (startDate.getTime() >= periodStart.getTime() && startDate.getTime() <= periodEnd.getTime()) {
           currentOccurrenceDate = startDate;
       }
     } else {
-      // For Monthly or Installments, we need to find the date within this period that matches the start Day-of-Month.
-      // Note: This simple logic assumes the day of month stays the same.
-      // If StartDate is Jan 31, and we are in Feb, Feb 28/29 is the target.
-      
-      // Iterate through months in this period (usually just one or two partials) to find the match
-      // Since period is usually ~30 days, we can check the month of periodStart and periodEnd.
-      
       const targetDay = startDate.getDate();
-      
-      // Try constructing the date in the month of periodStart
       let candidateDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), Math.min(targetDay, getDaysInMonth(periodStart.getFullYear(), periodStart.getMonth())));
       
-      // If candidate is before periodStart, maybe it falls in the next month (if period spans months)
       if (candidateDate < periodStart) {
         candidateDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), Math.min(targetDay, getDaysInMonth(periodEnd.getFullYear(), periodEnd.getMonth())));
       }
 
-      // Verify the candidate is within range
       if (candidateDate >= periodStart && candidateDate <= periodEnd && candidateDate >= startDate) {
         currentOccurrenceDate = candidateDate;
       }
     }
 
-    // If we found a valid occurrence date for this period, check if it is excluded
     if (currentOccurrenceDate) {
         const occurrenceStr = getISODate(currentOccurrenceDate);
         if (expense.excludedDates?.includes(occurrenceStr)) {
             return null;
         }
 
-        // Determine Payment Status
         const isPaid = expense.paidDates?.includes(occurrenceStr) || false;
         
-        // Prepare shared return object parts
         const baseReturn = {
            ...expense, 
            occurrenceDate: occurrenceStr,
            isPaid
         };
 
-        // Handle specific types
         if (expense.recurrence === 'single' || expense.recurrence === 'monthly') {
            return { ...baseReturn, currentInstallment: null };
         }
 
         if (expense.recurrence === 'installments' && expense.installments) {
-          // Calculate installment number
           const startMonthIndex = startDate.getFullYear() * 12 + startDate.getMonth();
           const currentMonthIndex = currentOccurrenceDate!.getFullYear() * 12 + currentOccurrenceDate!.getMonth();
-          
           const monthDiff = currentMonthIndex - startMonthIndex;
           
           if (monthDiff >= 0 && monthDiff < expense.installments) {
@@ -248,7 +207,6 @@ export const getFixedExpensesForPeriod = (
           }
         }
     }
-
     return null;
   }).filter((e): e is (FixedExpense & { currentInstallment: number | null, occurrenceDate: string, isPaid: boolean }) => e !== null);
 };

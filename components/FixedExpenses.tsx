@@ -96,7 +96,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
-  const [showCreditCardDetails, setShowCreditCardDetails] = useState(false);
+  const [selectedCardDetail, setSelectedCardDetail] = useState<CreditCard | null | 'all'>(null);
   const [isFabVisible, setIsFabVisible] = useState(true);
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
@@ -151,6 +151,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     i.title.toLowerCase().includes('fatura') ||
     i.title.toLowerCase().includes('card')
   ), [activeExpenses]);
+
+  const totalsByCard = useMemo(() => {
+    const totals: Record<string, number> = {};
+    creditCardExpenses.forEach(exp => {
+      if (exp.cardId) {
+        totals[exp.cardId] = (totals[exp.cardId] || 0) + exp.amount;
+      }
+    });
+    return totals;
+  }, [creditCardExpenses]);
 
   const otherExpenses = useMemo(() => activeExpenses.filter(i => 
     !creditCardExpenses.includes(i)
@@ -414,28 +424,54 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col gap-3">
         <Card className="bg-gradient-to-br from-rose-500 to-rose-700 text-white border-none shadow-lg shadow-rose-500/20 p-4">
              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Total a Pagar</div>
-             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
         </Card>
-        <Card 
-          onClick={() => setShowCreditCardDetails(true)}
-          className="bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20 cursor-pointer active:scale-[0.99] p-4"
-        >
-             <div className="flex flex-col h-full justify-between">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-1.5">
-                    <CardIcon size={10} />
-                    Cartão
+
+        <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+          {creditCards.length > 0 ? (
+            creditCards.map(card => {
+              const cardTotal = totalsByCard[card.id] || 0;
+              return (
+                <Card 
+                  key={card.id}
+                  onClick={() => setSelectedCardDetail(card)}
+                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer active:scale-[0.99] p-4 flex flex-col justify-between"
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                      {card.name}
+                    </div>
                   </div>
-                  <div className="text-xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
+                  <div className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                    {formatCurrency(cardTotal)}
+                  </div>
+                  <div className="text-[9px] text-slate-400 mt-1 font-medium flex items-center gap-0.5 justify-end">
+                    Ver <ChevronRight size={8} />
+                  </div>
+                </Card>
+              );
+            })
+          ) : (
+             <Card 
+              onClick={() => setSelectedCardDetail('all')}
+              className="bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20 cursor-pointer active:scale-[0.99] p-4"
+             >
+                <div className="flex flex-col h-full justify-between">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-1.5">
+                        <CardIcon size={10} />
+                        Cartão (Geral)
+                      </div>
+                      <div className="text-xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
+                    </div>
                 </div>
-                <div className="text-[10px] text-white/60 mt-2 font-medium flex items-center gap-1 justify-end">
-                  Ver <ChevronRight size={10} />
-                </div>
-             </div>
-        </Card>
+             </Card>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -449,9 +485,10 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             )}
          </div>
 
-         {creditCardExpenses.length > 0 && (
+         {/* AGGREGATED CREDIT CARD ROW - Exibe o total acumulado de todos os cartões */}
+         {totalCreditCard > 0 && (
             <div 
-                onClick={() => setShowCreditCardDetails(true)}
+                onClick={() => setSelectedCardDetail('all')}
                 className="flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800"
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -460,14 +497,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
-                            Fatura Atual
+                            Total Acumulado
                         </p>
                         <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight">
                             Cartão de Crédito
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
-                            {creditCardExpenses.length} lançamentos
+                            {creditCardExpenses.length} lançamentos {creditCards.length > 1 ? `em ${creditCards.length} cartões` : ''}
                             </span>
                         </div>
                     </div>
@@ -495,40 +532,54 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         <Plus size={32} strokeWidth={2.5} />
       </button>
 
-      {showCreditCardDetails && (
+      {selectedCardDetail && (
          <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col animate-in slide-in-from-right duration-300">
             <div className="px-4 py-4 flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-10">
                  <button 
-                    onClick={() => setShowCreditCardDetails(false)}
+                    onClick={() => setSelectedCardDetail(null)}
                     className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                  >
                     <ChevronLeft size={24} />
                  </button>
                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Cartão de Crédito</h2>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                        {selectedCardDetail === 'all' ? 'Todos os Cartões' : selectedCardDetail.name}
+                    </h2>
                     <p className="text-xs text-slate-500">{periodLabel}</p>
                  </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 pb-32">
-                 <div className="bg-gradient-to-br from-purple-600 to-violet-800 rounded-[2rem] p-6 text-white shadow-xl shadow-purple-500/20 mb-6">
+                 <div 
+                    className="rounded-[2rem] p-6 text-white shadow-xl mb-6 transition-all duration-500"
+                    style={{ 
+                        background: (selectedCardDetail !== 'all' && selectedCardDetail)
+                           ? `linear-gradient(135deg, ${selectedCardDetail.color}dd, ${selectedCardDetail.color})` 
+                           : 'linear-gradient(135deg, #7c3aed, #4c1d95)',
+                        boxShadow: `0 10px 25px -5px ${(selectedCardDetail !== 'all' && selectedCardDetail) ? selectedCardDetail.color : '#7c3aed'}55`
+                    }}
+                 >
                     <div className="flex items-center gap-3 mb-2 opacity-80">
                         <CardIcon size={18} />
-                        <span className="text-sm font-bold uppercase tracking-wider">Fatura Atual</span>
+                        <span className="text-sm font-bold uppercase tracking-wider">
+                          {selectedCardDetail === 'all' ? 'Total Faturado' : 'Fatura do Ciclo'}
+                        </span>
                     </div>
-                    <div className="text-3xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
+                    <div className="text-3xl font-bold tracking-tight">
+                        {formatCurrency((selectedCardDetail !== 'all' && selectedCardDetail) ? (totalsByCard[selectedCardDetail.id] || 0) : totalCreditCard)}
+                    </div>
                  </div>
 
                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 px-2">
                     Lançamentos
                  </h3>
                  
-                 {creditCardExpenses.length > 0 ? (
-                     renderList(creditCardExpenses)
+                 {creditCardExpenses.filter(e => selectedCardDetail === 'all' || e.cardId === (selectedCardDetail as CreditCard).id).length > 0 ? (
+                     renderList(creditCardExpenses.filter(e => selectedCardDetail === 'all' || e.cardId === (selectedCardDetail as CreditCard).id))
                  ) : (
                      <div className="text-center py-10 text-slate-400">
                         <CardIcon size={48} className="mx-auto mb-4 opacity-20" />
-                        <p>Nenhum lançamento de cartão neste período.</p>
+                        <p>Nenhum lançamento encontrado.</p>
                      </div>
                  )}
             </div>
