@@ -115,6 +115,10 @@ const App: React.FC = () => {
     setCreditCards(prev => [...prev, card]);
   };
 
+  const handleUpdateCard = (updatedCard: CreditCard) => {
+    setCreditCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
+  };
+
   const handleDeleteCard = (id: string) => {
     setCreditCards(prev => prev.filter(c => c.id !== id));
     // Optionally remove cardId reference from fixedExpenses
@@ -173,6 +177,7 @@ const App: React.FC = () => {
             transactions={transactions}
             creditCards={creditCards}
             onAddCard={handleAddCard}
+            onUpdateCard={handleUpdateCard}
             onDeleteCard={handleDeleteCard}
           />
         )}

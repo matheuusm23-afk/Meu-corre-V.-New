@@ -15,15 +15,17 @@ interface SettingsProps {
   transactions: Transaction[];
   creditCards: CreditCard[];
   onAddCard: (card: CreditCard) => void;
+  onUpdateCard: (card: CreditCard) => void;
   onDeleteCard: (id: string) => void;
 }
 
 const CARD_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0f172a'];
 
 export const Settings: React.FC<SettingsProps> = ({ 
-  onClearData, goalSettings, onUpdateSettings, currentTheme, onToggleTheme, transactions, creditCards, onAddCard, onDeleteCard
+  onClearData, goalSettings, onUpdateSettings, currentTheme, onToggleTheme, transactions, creditCards, onAddCard, onUpdateCard, onDeleteCard
 }) => {
   const [showCardForm, setShowCardForm] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
   const [cardColor, setCardColor] = useState(CARD_COLORS[0]);
@@ -34,17 +36,37 @@ export const Settings: React.FC<SettingsProps> = ({
     if (!cardName) return;
     if (hasLimitOption && !cardLimit) return;
     
-    onAddCard({
-      id: uuidv4(),
+    const cardData: CreditCard = {
+      id: editingCardId || uuidv4(),
       name: cardName,
       color: cardColor,
       limit: hasLimitOption ? parseFloat(cardLimit) : 0
-    });
+    };
+
+    if (editingCardId) {
+      onUpdateCard(cardData);
+    } else {
+      onAddCard(cardData);
+    }
     
+    resetCardForm();
+  };
+
+  const resetCardForm = () => {
     setCardName('');
     setCardLimit('');
     setHasLimitOption(true);
+    setEditingCardId(null);
     setShowCardForm(false);
+  };
+
+  const handleEditCard = (card: CreditCard) => {
+    setCardName(card.name);
+    setCardLimit(card.limit > 0 ? card.limit.toString() : '');
+    setCardColor(card.color);
+    setHasLimitOption(card.limit > 0);
+    setEditingCardId(card.id);
+    setShowCardForm(true);
   };
 
   const handleEndDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -82,15 +104,31 @@ export const Settings: React.FC<SettingsProps> = ({
                   <span className="text-[10px] text-slate-400 uppercase">Limite: {card.limit > 0 ? formatCurrency(card.limit) : 'Ilimitado/Pré-pago'}</span>
                 </div>
               </div>
-              <button onClick={() => onDeleteCard(card.id)} className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors">
-                <Trash2 size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleEditCard(card)}
+                  className="p-1.5 text-slate-300 hover:text-amber-500 transition-colors"
+                  title="Editar Cartão"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button 
+                  onClick={() => onDeleteCard(card.id)} 
+                  className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                  title="Excluir Cartão"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
           
           {showCardForm ? (
             <form onSubmit={handleAddCardSubmit} className="mt-4 p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 animate-in slide-in-from-top-2">
               <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">
+                  {editingCardId ? 'Editar Cartão' : 'Novo Cartão'}
+                </h4>
                 <input 
                   autoFocus
                   type="text"
@@ -139,15 +177,17 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-purple-500/20">Salvar Cartão</button>
-                  <button type="button" onClick={() => setShowCardForm(false)} className="px-4 py-2.5 text-slate-400 text-xs font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-purple-500/20">
+                    {editingCardId ? 'Atualizar' : 'Salvar'}
+                  </button>
+                  <button type="button" onClick={resetCardForm} className="px-4 py-2.5 text-slate-400 text-xs font-bold">Cancelar</button>
                 </div>
               </div>
             </form>
           ) : (
             <button 
               onClick={() => setShowCardForm(true)}
-              className="w-full py-2.5 mt-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl flex items-center justify-center gap-2 text-xs font-bold"
+              className="w-full py-2.5 mt-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
             >
               <Plus size={14} />
               Adicionar Novo Cartão
@@ -182,7 +222,7 @@ export const Settings: React.FC<SettingsProps> = ({
       <Card title="Dados e Backup">
         <button 
           onClick={onClearData}
-          className="w-full py-3 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl font-bold flex items-center justify-center gap-2"
+          className="w-full py-3 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-rose-200 dark:hover:bg-rose-900/50"
         >
           <Trash2 size={18} />
           Apagar Todos os Dados
