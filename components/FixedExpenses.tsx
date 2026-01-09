@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedExpense, RecurrenceType, CreditCard, TransactionType } from '../types';
-import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
+import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod, parseDateLocal } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2, AlertCircle, Info } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2, AlertCircle, Info, ShoppingBag } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -105,6 +105,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   const [isFabVisible, setIsFabVisible] = useState(true);
+  const [viewingHistoryCard, setViewingHistoryCard] = useState<CreditCard | null>(null);
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
 
@@ -160,13 +161,42 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const totalsByCard = useMemo(() => {
     const totals: Record<string, number> = {};
-    activeItems.forEach(exp => {
-      if (exp.cardId) {
-        totals[exp.cardId] = (totals[exp.cardId] || 0) + exp.amount;
+    
+    // Calcula o limite ocupado considerando o valor TOTAL das compras parceladas
+    fixedExpenses.forEach(exp => {
+      if (exp.cardId && exp.type === 'expense') {
+        const expenseStart = parseDateLocal(exp.startDate);
+        
+        // Se a despesa começa depois do fim do período visualizado, não ocupa limite ainda nesse período
+        if (expenseStart > endDate) return;
+
+        let utilizedValue = 0;
+        
+        if (exp.recurrence === 'installments' && exp.installments) {
+          // Calcula a data de término do parcelamento
+          const expenseEnd = new Date(expenseStart);
+          expenseEnd.setMonth(expenseStart.getMonth() + exp.installments - 1);
+          
+          // Se o parcelamento terminou antes do início do período atual, o limite já foi liberado
+          if (expenseEnd < startDate) return;
+          
+          // Desconta o valor TOTAL da compra do limite
+          utilizedValue = exp.amount * exp.installments;
+        } else if (exp.recurrence === 'single') {
+          // Despesas avulsas só contam se estiverem dentro do período selecionado
+          if (expenseStart >= startDate && expenseStart <= endDate) {
+            utilizedValue = exp.amount;
+          }
+        } else {
+          // Mensal recorrente (ex: Netflix) - conta sempre que já tiver começado
+          utilizedValue = exp.amount;
+        }
+        
+        totals[exp.cardId] = (totals[exp.cardId] || 0) + utilizedValue;
       }
     });
     return totals;
-  }, [activeItems]);
+  }, [fixedExpenses, startDate, endDate]);
 
   const creditCardExpenses = useMemo(() => activeItems.filter(i => !!i.cardId), [activeItems]);
   const otherItems = useMemo(() => activeItems.filter(i => !i.cardId), [activeItems]);
@@ -389,21 +419,23 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               const cardTotal = totalsByCard[card.id] || 0;
               const available = card.limit > 0 ? card.limit - cardTotal : null;
               return (
-                <Card 
+                <div 
                   key={card.id}
-                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm p-3.5"
+                  onClick={() => setViewingHistoryCard(card)}
+                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-3.5 rounded-[2rem] active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
                     <div className="text-[9px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
                   </div>
                   <div className="text-base font-bold text-slate-900 dark:text-slate-100">{formatCurrency(cardTotal)}</div>
+                  <div className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Limite Ocupado</div>
                   {available !== null && (
-                    <div className={`mt-1.5 text-[9px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    <div className={`mt-2 text-[9px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {available >= 0 ? 'Livre: ' : 'Faltou: '} {formatCurrency(Math.abs(available))}
                     </div>
                   )}
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -439,6 +471,75 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-11 h-11 bg-slate-900 dark:bg-white rounded-xl shadow-2xl flex items-center justify-center text-white dark:text-slate-950 transition-all">
         <Plus size={22} strokeWidth={2.5} />
       </button>
+
+      {/* Card History Modal */}
+      {viewingHistoryCard && (
+        <div className="fixed inset-0 z-[110] flex items-end justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setViewingHistoryCard(null)} />
+           <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: viewingHistoryCard.color }}>
+                      <CardIcon size={20} />
+                   </div>
+                   <div>
+                     <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{viewingHistoryCard.name}</h3>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico de Lançamentos</p>
+                   </div>
+                </div>
+                <button onClick={() => setViewingHistoryCard(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-3 pb-6">
+                {fixedExpenses.filter(e => e.cardId === viewingHistoryCard.id).length > 0 ? (
+                  fixedExpenses
+                    .filter(e => e.cardId === viewingHistoryCard.id)
+                    .map(item => (
+                      <div key={item.id} className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{item.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[9px] font-extrabold uppercase bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-500">
+                              {item.recurrence === 'monthly' ? 'Mensal' : item.recurrence === 'installments' ? `${item.installments}x` : 'Avulso'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-medium">Início: {new Date(item.startDate).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                           <p className="font-bold text-sm text-slate-900 dark:text-white">{formatCurrency(item.amount)}</p>
+                           {item.recurrence === 'installments' && item.installments && (
+                             <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Total: {formatCurrency(item.amount * item.installments)}</p>
+                           )}
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center py-12 text-slate-400">
+                    <ShoppingBag size={32} className="mx-auto mb-2 opacity-20" />
+                    <p className="text-xs font-medium">Nenhum lançamento vinculado.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                 <div className="bg-slate-900 dark:bg-white p-4 rounded-2xl flex justify-between items-center shadow-xl">
+                    <span className="text-xs font-bold text-white/70 dark:text-slate-500 uppercase">Comprometido Total</span>
+                    <span className="text-xl font-extrabold text-white dark:text-slate-900">
+                       {formatCurrency(fixedExpenses
+                         .filter(e => e.cardId === viewingHistoryCard.id)
+                         .reduce((acc, curr) => {
+                            if (curr.recurrence === 'installments' && curr.installments) {
+                               return acc + (curr.amount * curr.installments);
+                            }
+                            return acc + curr.amount;
+                         }, 0)
+                       )}
+                    </span>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Confirmation Delete Modal */}
       {deleteModal.isOpen && (
@@ -565,7 +666,22 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                 {recurrence === 'installments' && (
                   <div className="animate-in fade-in slide-in-from-top-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Quantidade de Parcelas</label>
-                    <input type="number" value={installments} onChange={e => setInstallments(e.target.value)} placeholder="Ex: 12" className="w-full bg-white dark:bg-slate-900 p-3 rounded-lg text-sm font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+                    <input 
+                      type="number" 
+                      value={installments} 
+                      onChange={(e) => setInstallments(e.target.value)} 
+                      placeholder="Ex: 12" 
+                      className="w-full bg-white dark:bg-slate-900 p-3 rounded-lg text-sm font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" 
+                    />
+                    {/* Previsão do Valor Total Parcelado */}
+                    {amount && installments && (
+                      <div className="mt-1 px-1">
+                        <span className="text-[10px] font-bold text-slate-400">Total da Compra: </span>
+                        <span className="text-[10px] font-extrabold text-slate-900 dark:text-white">
+                          {formatCurrency(parseFloat(amount) * (parseInt(installments) || 0))}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
