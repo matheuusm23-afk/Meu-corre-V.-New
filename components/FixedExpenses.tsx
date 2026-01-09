@@ -159,39 +159,38 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   // Forecast: Total Expenses - Total Ganhos Fixos
   const forecastValue = Math.max(0, totalExpenses - totalIncomes);
 
-  const totalsByCard = useMemo(() => {
+  // Fatura do Mês: Apenas o que cai neste período (uma parcela, ou gasto único/mensal)
+  const invoiceByCard = useMemo(() => {
     const totals: Record<string, number> = {};
-    
-    // Calcula o limite ocupado considerando o valor TOTAL das compras parceladas
+    activeItems.forEach(item => {
+      if (item.cardId && item.type === 'expense') {
+        totals[item.cardId] = (totals[item.cardId] || 0) + item.amount;
+      }
+    });
+    return totals;
+  }, [activeItems]);
+
+  // Limite Ocupado: Valor total comprometido (valor total da compra parcelada)
+  const committedByCard = useMemo(() => {
+    const totals: Record<string, number> = {};
     fixedExpenses.forEach(exp => {
       if (exp.cardId && exp.type === 'expense') {
         const expenseStart = parseDateLocal(exp.startDate);
-        
-        // Se a despesa começa depois do fim do período visualizado, não ocupa limite ainda nesse período
         if (expenseStart > endDate) return;
 
         let utilizedValue = 0;
-        
         if (exp.recurrence === 'installments' && exp.installments) {
-          // Calcula a data de término do parcelamento
           const expenseEnd = new Date(expenseStart);
           expenseEnd.setMonth(expenseStart.getMonth() + exp.installments - 1);
-          
-          // Se o parcelamento terminou antes do início do período atual, o limite já foi liberado
           if (expenseEnd < startDate) return;
-          
-          // Desconta o valor TOTAL da compra do limite
           utilizedValue = exp.amount * exp.installments;
         } else if (exp.recurrence === 'single') {
-          // Despesas avulsas só contam se estiverem dentro do período selecionado
           if (expenseStart >= startDate && expenseStart <= endDate) {
             utilizedValue = exp.amount;
           }
         } else {
-          // Mensal recorrente (ex: Netflix) - conta sempre que já tiver começado
           utilizedValue = exp.amount;
         }
-        
         totals[exp.cardId] = (totals[exp.cardId] || 0) + utilizedValue;
       }
     });
@@ -416,25 +415,37 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         {creditCards.length > 0 && (
           <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
             {creditCards.map(card => {
-              const cardTotal = totalsByCard[card.id] || 0;
-              const available = card.limit > 0 ? card.limit - cardTotal : null;
+              const monthInvoice = invoiceByCard[card.id] || 0;
+              const committedTotal = committedByCard[card.id] || 0;
+              const available = card.limit > 0 ? card.limit - committedTotal : null;
+              
               return (
                 <div 
                   key={card.id}
                   onClick={() => setViewingHistoryCard(card)}
-                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-3.5 rounded-[2rem] active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
+                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-4 rounded-[2rem] active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
-                    <div className="text-[9px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
+                    <div className="text-[10px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
                   </div>
-                  <div className="text-base font-bold text-slate-900 dark:text-slate-100">{formatCurrency(cardTotal)}</div>
-                  <div className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Limite Ocupado</div>
-                  {available !== null && (
-                    <div className={`mt-2 text-[9px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {available >= 0 ? 'Livre: ' : 'Faltou: '} {formatCurrency(Math.abs(available))}
+                  <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{formatCurrency(monthInvoice)}</div>
+                  <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">Fatura do Mês</div>
+                  
+                  <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800/50 space-y-1">
+                    <div className="flex justify-between items-center text-[8px] font-bold uppercase text-slate-400">
+                      <span>Total Ocupado</span>
+                      <span className="text-slate-600 dark:text-slate-300">{formatCurrency(committedTotal)}</span>
                     </div>
-                  )}
+                    {available !== null && (
+                      <div className="flex justify-between items-center text-[8px] font-bold uppercase text-slate-400">
+                        <span>Livre</span>
+                        <span className={available >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                          {formatCurrency(Math.abs(available))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
