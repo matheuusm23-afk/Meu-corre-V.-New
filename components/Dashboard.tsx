@@ -316,9 +316,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <button 
         onClick={() => handleOpenForm()}
-        className={`fixed bottom-32 right-6 z-40 w-14 h-14 bg-slate-900 dark:bg-white rounded-2xl shadow-2xl flex items-center justify-center text-white dark:text-slate-900 transition-all ${isFabVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
+        className={`fixed bottom-32 right-6 z-40 w-11 h-11 bg-slate-900 dark:bg-white rounded-xl shadow-2xl flex items-center justify-center text-white dark:text-slate-900 transition-all ${isFabVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
       >
-        <Plus size={28} strokeWidth={2.5} />
+        <Plus size={22} strokeWidth={2.5} />
       </button>
 
       {showForm && (

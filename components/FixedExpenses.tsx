@@ -436,8 +436,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
          )}
       </div>
 
-      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-white rounded-2xl shadow-2xl flex items-center justify-center text-white dark:text-slate-950 transition-all">
-        <Plus size={28} strokeWidth={2.5} />
+      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-11 h-11 bg-slate-900 dark:bg-white rounded-xl shadow-2xl flex items-center justify-center text-white dark:text-slate-950 transition-all">
+        <Plus size={22} strokeWidth={2.5} />
       </button>
 
       {/* Confirmation Delete Modal */}

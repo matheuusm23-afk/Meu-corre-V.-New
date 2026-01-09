@@ -1,5 +1,5 @@
 
-// Fix: Use the correct types for FixedExpense items in goal calculation, as they do not have a .type property.
+// Reverted Goals component to remove dailyAdjustments and Modal logic.
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
@@ -236,7 +236,6 @@ export const Goals: React.FC<GoalsProps> = ({
       const dateStr = getISODate(date);
       const dayNum = date.getDate();
       
-      // Mostrar rótulo do mês no primeiro dia do ciclo e quando o mês vira (dia 1)
       const isFirstDayOfCycle = index === 0;
       const isFirstOfMonth = dayNum === 1;
       const showMonthLabel = isFirstDayOfCycle || isFirstOfMonth;

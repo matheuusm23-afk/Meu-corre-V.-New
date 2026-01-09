@@ -40,6 +40,7 @@ export interface GoalSettings {
   endDayOfMonth?: number; // 1-31, or undefined for automatic (startDay - 1)
   dailySavingTarget: number; // Valor que o usuário quer guardar por dia
   savingsDates: string[]; // Dias em que o usuário efetivamente guardou o dinheiro
+  savingsAdjustments?: Record<string, number>; // Novo: valores extras guardados por dia { "2024-12-20": 50 }
 }
 
 export type ViewMode = 'home' | 'goals' | 'yearly-goals' | 'settings' | 'fixed-expenses';
