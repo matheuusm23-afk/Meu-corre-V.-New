@@ -162,21 +162,21 @@ export const Goals: React.FC<GoalsProps> = ({
        if (hitGoal) {
           cardVariant = 'success';
           messageNode = (
-            <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-2 font-medium bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
+            <p className="text-[10px] text-emerald-800 dark:text-emerald-200 mt-2 font-medium bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
                Parabéns vc bateu sua meta hoje e sua diária partir de amanhã ficará mais baixa 🚀
             </p>
           );
        } else {
           cardVariant = 'danger';
           messageNode = (
-            <p className="text-xs text-rose-800 dark:text-rose-200 mt-2 font-medium bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg">
+            <p className="text-[10px] text-rose-800 dark:text-rose-200 mt-2 font-medium bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg">
                Que pena você não bateu a meta hoje, amanhã sua meta ficará um pouco maior 📉
             </p>
           );
        }
        
        comparisonNode = (
-          <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-white/50 dark:bg-slate-900/50 rounded-xl text-xs border border-slate-200/50 dark:border-slate-700/50">
+          <div className="grid grid-cols-2 gap-2 mt-2 p-2.5 bg-white/50 dark:bg-slate-900/50 rounded-xl text-[10px] border border-slate-200/50 dark:border-slate-700/50">
              <div>
                 <span className="block text-slate-500 dark:text-slate-400">Meta de Hoje</span>
                 <span className="block font-bold text-slate-700 dark:text-slate-300">{formatCurrency(startOfDayTarget)}</span>
@@ -275,52 +275,52 @@ export const Goals: React.FC<GoalsProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
+    <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
        <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Organização de trabalho 🎯</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Acompanhe seu progresso.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Organização 🎯</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Acompanhe seu progresso diário.</p>
       </header>
 
-      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
-        <button onClick={() => changePeriod(-1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
-          <ChevronLeft size={24} />
+      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-[1.25rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
+        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronLeft size={20} />
         </button>
         <div className="text-center">
-          <div className="text-lg font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
-          <div className="text-xs text-slate-500 font-medium">{periodLabel}</div>
+          <div className="text-sm font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
+          <div className="text-[10px] text-slate-500 font-medium">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
-          <ChevronRight size={24} />
+        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronRight size={20} />
         </button>
       </div>
 
       {isCurrentCycleView && (
-        <div className="grid grid-cols-2 gap-5">
-          <Card title="Corre do Mês">
-            <div className={`text-xl font-bold mt-1 tracking-tight ${netWorkProfit < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <div className="grid grid-cols-2 gap-3">
+          <Card title="Corre do Mês" className="p-4">
+            <div className={`text-lg font-bold mt-1 tracking-tight ${netWorkProfit < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {formatCurrency(netWorkProfit)}
             </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 mt-3 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 mt-2.5 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
               <div className="bg-emerald-500 h-full transition-all duration-1000 ease-out rounded-full" style={{ width: `${progressPercent}%` }}></div>
             </div>
-            <div className="text-[10px] text-slate-400 font-medium mt-2">
-              {Math.round(progressPercent)}% das contas cobertas
+            <div className="text-[9px] text-slate-400 font-medium mt-1.5">
+              {Math.round(progressPercent)}% concluído
             </div>
           </Card>
-          <Card title="Gap a Cobrir">
-            <div className="text-slate-800 dark:text-slate-200 text-xl font-bold mt-1 tracking-tight">
+          <Card title="Gap a Cobrir" className="p-4">
+            <div className="text-slate-800 dark:text-slate-200 text-lg font-bold mt-1 tracking-tight">
               {formatCurrency(remainingToEarn)}
             </div>
-            <div className="text-xs text-slate-400 mt-3">
-              Abatendo ganhos fixos 🏍️
+            <div className="text-[10px] text-slate-400 mt-2.5">
+              Considerando fixos 🏍️
             </div>
           </Card>
         </div>
       )}
 
       <Card 
-        title={isFutureView ? "Diária (Previsão)" : "Meta Diária"} 
-        className={`${
+        title={isFutureView ? "Previsão Diária" : "Meta de Hoje"} 
+        className={`p-5 ${
            cardVariant === 'default' 
              ? 'border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20' 
              : cardVariant === 'success' 
@@ -328,15 +328,15 @@ export const Goals: React.FC<GoalsProps> = ({
                 : 'border border-rose-200/50 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20'
         } backdrop-blur-sm`}
       >
-         <div className="flex items-center gap-5">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${
+         <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
                cardVariant === 'default'
                 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500'
                 : cardVariant === 'success'
                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500'
                    : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
             }`}>
-               <Target size={28} />
+               <Target size={24} />
             </div>
             <div>
                <div className={`text-2xl font-bold tracking-tight ${
@@ -346,7 +346,7 @@ export const Goals: React.FC<GoalsProps> = ({
                }`}>
                   {formatCurrency(dailyTargetDisplay)}
                </div>
-               <div className={`text-xs mt-1 font-medium ${
+               <div className={`text-[10px] mt-0.5 font-medium ${
                  cardVariant === 'default' ? 'text-amber-700/70 dark:text-amber-400/70' :
                  cardVariant === 'success' ? 'text-emerald-700/70 dark:text-emerald-400/70' :
                  'text-rose-700/70 dark:text-rose-400/70'
@@ -362,23 +362,24 @@ export const Goals: React.FC<GoalsProps> = ({
 
       <Card 
         title="Folgas" 
-        subtitle={`Toque para marcar dias sem corre`} 
-        icon={<CalIcon className="text-slate-400"/>}
+        subtitle={`Toque nos dias que não terá corre`} 
+        icon={<CalIcon size={16} className="text-slate-400"/>}
+        className="p-5"
       >
-        <div className="mt-4 overflow-hidden">
-          <div className="grid grid-cols-7 gap-2 mb-3 text-center">
+        <div className="mt-3 overflow-hidden">
+          <div className="grid grid-cols-7 gap-1.5 mb-2.5 text-center">
              {['D','S','T','Q','Q','S','S'].map((d, i) => (
-               <div key={i} className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{d}</div>
+               <div key={i} className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{d}</div>
              ))}
           </div>
           
-          <div className="grid grid-cols-7 gap-2 place-items-center pb-2">
+          <div className="grid grid-cols-7 gap-1.5 place-items-center">
              {renderCalendarGrid()}
           </div>
           
-          <div className="mt-6 flex gap-6 text-xs font-medium text-slate-500 dark:text-slate-400 justify-center">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600 shadow-sm"></div> Trabalho</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-200 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-800 shadow-sm"></div> Folga</div>
+          <div className="mt-4 flex gap-4 text-[10px] font-medium text-slate-500 dark:text-slate-400 justify-center">
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600"></div> Trampo</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-200 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-800"></div> Folga</div>
           </div>
         </div>
       </Card>

@@ -79,55 +79,53 @@ export const Settings: React.FC<SettingsProps> = ({
   const displayManualStartDay = isManualMode ? (goalSettings.endDayOfMonth! >= 31 ? 1 : goalSettings.endDayOfMonth! + 1) : null;
 
   return (
-    <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
+    <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
       <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Configurações ⚙️</h1>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Ajustes ⚙️</h1>
       </header>
 
-      <Card title="Aparência" icon={<Edit2 className="text-blue-500" />}>
-        <div className="flex items-center justify-between mt-2">
+      <Card title="Aparência" icon={<Edit2 size={16} className="text-blue-500" />} className="p-5">
+        <div className="flex items-center justify-between mt-1">
           <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">Modo Escuro</span>
-          <button onClick={onToggleTheme} className={`relative w-12 h-6 rounded-full transition-colors ${currentTheme === 'dark' ? 'bg-amber-500' : 'bg-slate-300'}`}>
-            <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow-md transition-transform ${currentTheme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`} />
+          <button onClick={onToggleTheme} className={`relative w-11 h-5.5 rounded-full transition-colors ${currentTheme === 'dark' ? 'bg-amber-500' : 'bg-slate-300'}`}>
+            <div className={`absolute top-0.5 left-0.5 bg-white w-4.5 h-4.5 rounded-full shadow-md transition-transform ${currentTheme === 'dark' ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
       </Card>
 
-      <Card title="Meus Cartões" icon={<CardIcon className="text-purple-500" />}>
-        <div className="mt-2 space-y-3">
+      <Card title="Meus Cartões" icon={<CardIcon size={16} className="text-purple-500" />} className="p-5">
+        <div className="mt-1 space-y-2.5">
           {creditCards.map(card => (
-            <div key={card.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: card.color }}></div>
+            <div key={card.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: card.color }}></div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
-                  <span className="text-[10px] text-slate-400 uppercase">Limite: {card.limit > 0 ? formatCurrency(card.limit) : 'Ilimitado/Pré-pago'}</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
+                  <span className="text-[9px] text-slate-400 uppercase">{card.limit > 0 ? formatCurrency(card.limit) : 'S/ Limite'}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button 
                   onClick={() => handleEditCard(card)}
                   className="p-1.5 text-slate-300 hover:text-amber-500 transition-colors"
-                  title="Editar Cartão"
                 >
-                  <Edit2 size={16} />
+                  <Edit2 size={14} />
                 </button>
                 <button 
                   onClick={() => onDeleteCard(card.id)} 
                   className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
-                  title="Excluir Cartão"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
           ))}
           
           {showCardForm ? (
-            <form onSubmit={handleAddCardSubmit} className="mt-4 p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 animate-in slide-in-from-top-2">
+            <form onSubmit={handleAddCardSubmit} className="mt-3 p-3.5 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5 animate-in slide-in-from-top-2">
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">
-                  {editingCardId ? 'Editar Cartão' : 'Novo Cartão'}
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase">
+                  {editingCardId ? 'Editar' : 'Novo'} Cartão
                 </h4>
                 <input 
                   autoFocus
@@ -135,7 +133,7 @@ export const Settings: React.FC<SettingsProps> = ({
                   placeholder="Nome do Cartão"
                   value={cardName}
                   onChange={e => setCardName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-sm"
+                  className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs"
                 />
                 
                 <div className="flex flex-wrap gap-2">
@@ -144,88 +142,89 @@ export const Settings: React.FC<SettingsProps> = ({
                       key={color}
                       type="button"
                       onClick={() => setCardColor(color)}
-                      className={`w-8 h-8 rounded-full border-2 transition-transform ${cardColor === color ? 'scale-110 border-slate-400 dark:border-white shadow-lg' : 'border-transparent'}`}
+                      className={`w-7 h-7 rounded-full border-2 transition-transform ${cardColor === color ? 'scale-110 border-slate-400 dark:border-white' : 'border-transparent'}`}
                       style={{ backgroundColor: color }}
                     />
                   ))}
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Cartão com Limite?</span>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Possui Limite?</span>
                     <button 
                       type="button"
                       onClick={() => setHasLimitOption(!hasLimitOption)}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${hasLimitOption ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                      className={`relative w-9 h-4.5 rounded-full transition-colors ${hasLimitOption ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}
                     >
-                      <div className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${hasLimitOption ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-0.5 left-0.5 bg-white w-3.5 h-3.5 rounded-full transition-transform ${hasLimitOption ? 'translate-x-4.5' : 'translate-x-0'}`} />
                     </button>
                   </div>
 
                   {hasLimitOption && (
-                    <div className="relative animate-in fade-in zoom-in-95">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+                    <div className="relative animate-in fade-in">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                       <input 
                         type="number"
                         placeholder="0,00"
                         value={cardLimit}
                         onChange={e => setCardLimit(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-950 p-3 pl-10 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-sm"
+                        className="w-full bg-white dark:bg-slate-950 p-2.5 pl-8 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs"
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-purple-500/20">
-                    {editingCardId ? 'Atualizar' : 'Salvar'}
+                <div className="flex gap-2">
+                  <button type="submit" className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-[10px] shadow-lg">
+                    {/* Fix: replaced 'editingId' with 'editingCardId' to resolve reference error */}
+                    {editingCardId ? 'Salvar' : 'Adicionar'}
                   </button>
-                  <button type="button" onClick={resetCardForm} className="px-4 py-2.5 text-slate-400 text-xs font-bold">Cancelar</button>
+                  <button type="button" onClick={resetCardForm} className="px-3 text-slate-400 text-[10px] font-bold">Cancelar</button>
                 </div>
               </div>
             </form>
           ) : (
             <button 
               onClick={() => setShowCardForm(true)}
-              className="w-full py-2.5 mt-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+              className="w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold transition-all"
             >
-              <Plus size={14} />
-              Adicionar Novo Cartão
+              <Plus size={12} />
+              Adicionar Cartão
             </button>
           )}
         </div>
       </Card>
 
-      <Card title="Ciclo Financeiro" icon={<Calendar className="text-amber-500" />}>
-        <div className="mt-2 space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Dia de Fechamento</label>
+      <Card title="Ciclo" icon={<Calendar size={16} className="text-amber-500" />} className="p-5">
+        <div className="mt-1 space-y-3.5">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Fechamento do Ciclo</label>
             <select 
               value={goalSettings.endDayOfMonth === undefined ? 'auto' : goalSettings.endDayOfMonth} 
               onChange={handleEndDayChange}
-              className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white"
+              className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs"
             >
-              <option value="auto">Automático (Dia Anterior ao Início)</option>
+              <option value="auto">Automático</option>
               {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
                 <option key={d} value={d}>Dia {d}</option>
               ))}
             </select>
           </div>
           
-          <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
-             <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Início do Próximo Ciclo</div>
-             <div className="text-lg font-bold text-slate-900 dark:text-white">Dia {displayManualStartDay || goalSettings.startDayOfMonth}</div>
+          <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+             <div className="text-[9px] font-bold text-slate-500 uppercase mb-0.5">Próximo Ciclo em</div>
+             <div className="text-base font-bold text-slate-900 dark:text-white">Dia {displayManualStartDay || goalSettings.startDayOfMonth}</div>
           </div>
         </div>
       </Card>
 
-      <Card title="Dados e Backup">
+      <Card title="Sistema" className="p-5">
         <button 
           onClick={onClearData}
-          className="w-full py-3 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-rose-200 dark:hover:bg-rose-900/50"
+          className="w-full py-3 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition-all"
         >
-          <Trash2 size={18} />
-          Apagar Todos os Dados
+          <Trash2 size={16} />
+          Zerar Aplicativo
         </button>
       </Card>
     </div>

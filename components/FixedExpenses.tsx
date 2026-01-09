@@ -285,27 +285,27 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             }`} 
          >
             <div className={`flex items-center gap-3 flex-1 min-w-0 ${item.isPaid ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-               <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center relative ${
+               <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center relative ${
                  isIncome
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
                     : isCreditCard
                       ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
                       : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
-                  {isIncome ? <TrendingUp size={18} /> : isCreditCard ? <CardIcon size={18} /> : <Receipt size={18} />}
+                  {isIncome ? <TrendingUp size={16} /> : isCreditCard ? <CardIcon size={16} /> : <Receipt size={16} />}
                   {item.isPaid && (
                       <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
-                          <CheckCircle2 size={10} strokeWidth={3} />
+                          <CheckCircle2 size={8} strokeWidth={3} />
                       </div>
                   )}
                </div>
                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <p className={`text-[9px] font-extrabold uppercase tracking-wider leading-none truncate ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-600' : 'text-rose-500'}`}>
-                      {isIncome ? 'Ganho Fixo' : isCreditCard ? 'Cartão de Crédito' : 'Gasto Fixo'}
+                    <p className={`text-[8px] font-extrabold uppercase tracking-wider leading-none truncate ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-600' : 'text-rose-500'}`}>
+                      {isIncome ? 'Ganho Fixo' : isCreditCard ? 'Cartão' : 'Gasto Fixo'}
                     </p>
                     {card && (
-                      <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
+                      <span className="text-[7px] px-1 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
                          {card.name}
                       </span>
                     )}
@@ -315,15 +315,12 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                     {item.recurrence === 'installments' && item.currentInstallment && (
-                      <span className="text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                      <span className="text-[8px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1 py-0.5 rounded-md whitespace-nowrap">
                         {item.currentInstallment}/{item.installments}
                       </span>
                     )}
                     {item.recurrence === 'monthly' && (
-                       <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">Mensal</span>
-                    )}
-                    {item.recurrence === 'single' && (
-                       <span className="text-[9px] text-amber-500 font-bold uppercase whitespace-nowrap">Avulsa (Só este mês)</span>
+                       <span className="text-[8px] text-slate-400 font-medium uppercase whitespace-nowrap">Mensal</span>
                     )}
                   </div>
                </div>
@@ -332,9 +329,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
                  {isIncome ? '+ ' : '- '}{formatCurrency(item.amount)}
                </span>
-               <div className="flex items-center -mr-1 mt-1">
-                 <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1.5 text-slate-300 hover:text-amber-500"><Edit2 size={14} /></button>
-                 <button onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, item }); }} className="p-1.5 text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+               <div className="flex items-center -mr-1 mt-0.5">
+                 <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1 text-slate-300 hover:text-amber-500"><Edit2 size={12} /></button>
+                 <button onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, item }); }} className="p-1 text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
                </div>
             </div>
          </SwipeableListItem>
@@ -343,35 +340,34 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   );
 
   return (
-    <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
+    <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
       <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Contas do Ciclo 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Organize seus ganhos e gastos fixos.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Fixas 🧾</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Organize seus compromissos recorrentes.</p>
       </header>
 
-      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
-        <button onClick={() => changePeriod(-1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
-          <ChevronLeft size={24} />
+      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-[1.25rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
+        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronLeft size={20} />
         </button>
         <div className="text-center">
-          <div className="text-lg font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
-          <div className="text-xs text-slate-500 font-medium">{periodLabel}</div>
+          <div className="text-sm font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
+          <div className="text-[10px] text-slate-500 font-medium">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-2xl transition-colors">
-          <ChevronRight size={24} />
+        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronRight size={20} />
         </button>
       </div>
 
-      {/* Forecast Card */}
       <div className="px-2">
-        <div className="bg-blue-600 dark:bg-blue-700 p-3.5 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-white/20 p-1.5 rounded-lg text-white">
-              <Info size={16} />
+        <div className="bg-blue-600 dark:bg-blue-700 p-3 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
+          <div className="flex items-center gap-2">
+            <div className="bg-white/20 p-1 rounded-lg text-white">
+              <Info size={14} />
             </div>
-            <span className="text-[11px] font-bold text-white/90 uppercase tracking-tight">Previsão Real do Mês</span>
+            <span className="text-[10px] font-bold text-white/90 uppercase tracking-tight">Previsão Real</span>
           </div>
-          <div className="text-lg font-extrabold text-white tracking-tight">
+          <div className="text-base font-extrabold text-white tracking-tight">
             {formatCurrency(forecastValue)}
           </div>
         </div>
@@ -379,11 +375,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
-          <Card title="Ganhos Fixos" variant="success" className="p-5">
-             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalIncomes)}</div>
+          <Card title="Ganhos Fixos" variant="success" className="p-4">
+             <div className="text-lg font-bold tracking-tight">{formatCurrency(totalIncomes)}</div>
           </Card>
-          <Card title="Gastos Fixos" variant="danger" className="p-5">
-             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+          <Card title="Gastos Fixos" variant="danger" className="p-4">
+             <div className="text-lg font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
           </Card>
         </div>
 
@@ -395,16 +391,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               return (
                 <Card 
                   key={card.id}
-                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm p-4"
+                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm p-3.5"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
-                    <div className="text-[10px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
+                    <div className="text-[9px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
                   </div>
-                  <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(cardTotal)}</div>
+                  <div className="text-base font-bold text-slate-900 dark:text-slate-100">{formatCurrency(cardTotal)}</div>
                   {available !== null && (
-                    <div className={`mt-2 text-[10px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {available >= 0 ? 'Disponível: ' : 'Excedido: '} {formatCurrency(Math.abs(available))}
+                    <div className={`mt-1.5 text-[9px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {available >= 0 ? 'Livre: ' : 'Faltou: '} {formatCurrency(Math.abs(available))}
                     </div>
                   )}
                 </Card>
@@ -414,34 +410,34 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
          <div className="flex justify-between items-center px-2">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <ScrollText size={14} /> Lista de Itens
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <ScrollText size={12} /> Itens do Mês
             </h3>
          </div>
          {activeItems.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
                {otherItems.length > 0 && renderList(otherItems)}
                {creditCardExpenses.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase ml-2 flex items-center gap-1">
-                       <CardIcon size={12} /> Cartão de Crédito
+                  <div className="space-y-2 pt-2">
+                    <div className="text-[9px] font-bold text-slate-400 uppercase ml-2 flex items-center gap-1">
+                       <CardIcon size={10} /> No Cartão
                     </div>
                     {renderList(creditCardExpenses)}
                   </div>
                )}
             </div>
          ) : (
-            <div className="text-center py-10 text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-800">
-               <Receipt size={40} className="mx-auto mb-2 opacity-20" />
-               <p className="text-sm font-medium">Nenhum item fixo neste ciclo.</p>
+            <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-[1.5rem] border border-dashed border-slate-200 dark:border-slate-800">
+               <Receipt size={32} className="mx-auto mb-2 opacity-20" />
+               <p className="text-xs font-medium">Nada previsto.</p>
             </div>
          )}
       </div>
 
-      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl flex items-center justify-center text-white dark:text-slate-950 active:scale-95 transition-all">
-        <Plus size={32} strokeWidth={2.5} />
+      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-white rounded-2xl shadow-2xl flex items-center justify-center text-white dark:text-slate-950 transition-all">
+        <Plus size={28} strokeWidth={2.5} />
       </button>
 
       {/* Confirmation Delete Modal */}
@@ -452,11 +448,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
              <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle size={28} />
              </div>
-             <h3 className="text-center font-bold text-slate-900 dark:text-white mb-2">Excluir Item?</h3>
-             <p className="text-center text-xs text-slate-500 mb-6">Esta ação removerá o item "{deleteModal.item?.title}" permanentemente de todos os ciclos.</p>
+             <h3 className="text-center font-bold text-slate-900 dark:text-white mb-2 text-sm">Excluir Item?</h3>
+             <p className="text-center text-[11px] text-slate-500 mb-6">Esta ação removerá o item permanentemente de todos os ciclos.</p>
              <div className="flex gap-3">
-                <button onClick={() => setDeleteModal({ isOpen: false, item: null })} className="flex-1 py-3 rounded-xl font-bold text-xs text-slate-400 bg-slate-50 dark:bg-slate-800">Cancelar</button>
-                <button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold text-xs text-white bg-rose-600 shadow-lg shadow-rose-500/20">Excluir</button>
+                <button onClick={() => setDeleteModal({ isOpen: false, item: null })} className="flex-1 py-3 rounded-xl font-bold text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800">Cancelar</button>
+                <button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold text-[11px] text-white bg-rose-600 shadow-lg shadow-rose-500/20">Excluir</button>
              </div>
           </div>
         </div>
@@ -510,7 +506,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CardIcon size={16} className="text-purple-500" />
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Pagamento no Cartão?</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">No Cartão?</span>
                     </div>
                     <button 
                       type="button"
@@ -548,7 +544,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                         </div>
                       ) : (
                         <div className="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/20 p-2 rounded-lg text-center">
-                          Nenhum cartão cadastrado. Vá em Ajustes para adicionar.
+                          Vá em Ajustes para adicionar cartões.
                         </div>
                       )}
                     </div>

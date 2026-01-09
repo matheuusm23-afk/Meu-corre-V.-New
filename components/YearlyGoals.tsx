@@ -67,7 +67,6 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
       const dateStr = getISODate(date);
       const isMarked = goalSettings.savingsDates.includes(dateStr);
       const isToday = dateStr === getISODate(new Date());
-      const isPast = date < new Date(new Date().setHours(0,0,0,0));
 
       days.push(
         <button
@@ -78,7 +77,7 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
             ${isMarked 
               ? 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20 scale-105 z-10' 
               : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}
-            ${isToday ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-950' : ''}
+            ${isToday ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-slate-950' : ''}
           `}
         >
           {d}
@@ -90,75 +89,73 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
+    <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
       <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas do Ano 💰</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Sua reserva de emergência e futuro.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Ano 💰</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Sua reserva de emergência.</p>
       </header>
 
-      <Card title="Configurar Economia" icon={<TrendingUp size={16} className="text-blue-500" />}>
-        <div className="mt-2 space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Quanto você quer guardar por dia?</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-              <input 
-                type="number" 
-                value={goalSettings.dailySavingTarget || ''} 
-                onChange={(e) => onUpdateSettings({ ...goalSettings, dailySavingTarget: parseFloat(e.target.value) || 0 })}
-                placeholder="Ex: 10,00"
-                className="w-full bg-slate-50 dark:bg-slate-950 p-4 pl-12 rounded-2xl font-bold text-lg focus:outline-none border border-slate-200 dark:border-slate-800 dark:text-white"
-              />
-            </div>
+      <Card title="Guardar Diário" icon={<TrendingUp size={14} className="text-blue-500" />} className="p-4">
+        <div className="mt-1">
+          <label className="text-[9px] font-bold text-slate-400 uppercase">Valor fixo diário</label>
+          <div className="relative mt-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">R$</span>
+            <input 
+              type="number" 
+              value={goalSettings.dailySavingTarget || ''} 
+              onChange={(e) => onUpdateSettings({ ...goalSettings, dailySavingTarget: parseFloat(e.target.value) || 0 })}
+              placeholder="0,00"
+              className="w-full bg-slate-50 dark:bg-slate-950 p-3 pl-10 rounded-xl font-bold text-base focus:outline-none border border-slate-200 dark:border-slate-800 dark:text-white"
+            />
           </div>
         </div>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card title="Total Guardado" variant="success" className="p-4 shadow-emerald-500/20">
-          <div className="text-xl font-bold">{formatCurrency(stats.totalSaved)}</div>
-          <div className="text-[10px] opacity-80 font-medium mt-1">{stats.totalDaysMarked} dias concluídos</div>
+        <Card title="Guardado" variant="success" className="p-4 shadow-emerald-500/20">
+          <div className="text-lg font-bold">{formatCurrency(stats.totalSaved)}</div>
+          <div className="text-[9px] opacity-80 font-medium mt-1">{stats.totalDaysMarked} dias ok</div>
         </Card>
-        <Card title="Projeção Dez/31" variant="primary" className="p-4 shadow-blue-500/20">
-          <div className="text-xl font-bold">{formatCurrency(stats.projectedFinal)}</div>
-          <div className="text-[10px] opacity-80 font-medium mt-1">Se mantiver o foco diário</div>
+        <Card title="Previsão Final" variant="primary" className="p-4 shadow-blue-500/20">
+          <div className="text-lg font-bold">{formatCurrency(stats.projectedFinal)}</div>
+          <div className="text-[9px] opacity-80 font-medium mt-1">Ao final do ano</div>
         </Card>
       </div>
 
-      <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-4 rounded-[2rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-3 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <button 
             onClick={() => setSelectedMonth(prev => Math.max(0, prev - 1))}
-            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} />
           </button>
           <div className="text-center">
-            <div className="text-lg font-bold capitalize text-slate-900 dark:text-slate-100">{monthNames[selectedMonth]}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentYear}</div>
+            <div className="text-sm font-bold capitalize text-slate-900 dark:text-slate-100">{monthNames[selectedMonth]}</div>
+            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{currentYear}</div>
           </div>
           <button 
             onClick={() => setSelectedMonth(prev => Math.min(11, prev + 1))}
-            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={18} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-2 text-center">
+        <div className="grid grid-cols-7 gap-1.5 mb-2 text-center">
           {['D','S','T','Q','Q','S','S'].map((d, i) => (
-            <div key={i} className="text-[10px] text-slate-400 font-bold">{d}</div>
+            <div key={i} className="text-[9px] text-slate-400 font-bold">{d}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5">
           {renderCalendar(selectedMonth)}
         </div>
 
-        <div className="mt-6 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
-          <Info size={16} className="text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-relaxed">
-            Marque os dias em que você conseguiu separar o valor. O cálculo de projeção assume que você continuará guardando o valor diário nos dias restantes do ano.
+        <div className="mt-4 p-2.5 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex items-start gap-2.5">
+          <Info size={14} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-[9px] text-amber-800 dark:text-amber-300 leading-tight">
+            Marque os dias em que separou o valor. A projeção considera o valor diário para os dias restantes.
           </p>
         </div>
       </div>
