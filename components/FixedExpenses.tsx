@@ -253,6 +253,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     onUpdateExpense({ ...currentItem, paidDates: updatedPaidDates });
   };
 
+  const confirmDelete = () => {
+    if (deleteModal.item) {
+      onDeleteExpense(deleteModal.item.id);
+      setDeleteModal({ isOpen: false, item: null });
+    }
+  };
+
   const renderList = (items: typeof activeItems) => (
     <div className="space-y-3">
        {items.map(item => {
@@ -355,7 +362,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         </button>
       </div>
 
-      {/* Forecast Card: Compacto conforme pedido */}
+      {/* Forecast Card */}
       <div className="px-2">
         <div className="bg-blue-600 dark:bg-blue-700 p-3.5 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
           <div className="flex items-center gap-2.5">
@@ -436,6 +443,24 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl flex items-center justify-center text-white dark:text-slate-950 active:scale-95 transition-all">
         <Plus size={32} strokeWidth={2.5} />
       </button>
+
+      {/* Confirmation Delete Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDeleteModal({ isOpen: false, item: null })} />
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-xs rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95">
+             <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={28} />
+             </div>
+             <h3 className="text-center font-bold text-slate-900 dark:text-white mb-2">Excluir Item?</h3>
+             <p className="text-center text-xs text-slate-500 mb-6">Esta ação removerá o item "{deleteModal.item?.title}" permanentemente de todos os ciclos.</p>
+             <div className="flex gap-3">
+                <button onClick={() => setDeleteModal({ isOpen: false, item: null })} className="flex-1 py-3 rounded-xl font-bold text-xs text-slate-400 bg-slate-50 dark:bg-slate-800">Cancelar</button>
+                <button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold text-xs text-white bg-rose-600 shadow-lg shadow-rose-500/20">Excluir</button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center p-4">

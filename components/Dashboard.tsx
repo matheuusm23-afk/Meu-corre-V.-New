@@ -176,6 +176,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setShowForm(true);
   };
 
+  const handleDelete = (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
+      onDeleteTransaction(id);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !description) return;
@@ -283,17 +289,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span className={`font-bold text-sm ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-slate-100'}`}>
                         {t.type === 'expense' ? '- ' : '+ '}{formatCurrency(t.amount)}
                       </span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 transition-opacity">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
-                          className="p-2 text-slate-400 hover:text-amber-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                          className="p-2 text-slate-300 hover:text-amber-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                           title="Editar"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); onDeleteTransaction(t.id); }}
-                          className="p-2 text-slate-400 hover:text-rose-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                          className="p-2 text-slate-300 hover:text-rose-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                           title="Excluir"
                         >
                           <Trash2 size={16} />
