@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { FixedExpense, RecurrenceType, CreditCard } from '../types';
+import { FixedExpense, RecurrenceType, CreditCard, TransactionType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2 } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2, AlertCircle, Info } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -16,30 +16,29 @@ interface FixedExpensesProps {
   onDeleteExpense: (id: string) => void;
 }
 
-const EXPENSE_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Cartão'];
+const EXPENSE_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Salário', 'Bônus', 'Cartão'];
 
 // --- Swipeable Item Component ---
 interface SwipeableListItemProps {
   children: React.ReactNode;
   onTogglePaid: () => void;
   isPaid: boolean;
+  type: TransactionType;
   className?: string;
   onClick?: () => void;
 }
 
-const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onTogglePaid, isPaid, className, onClick }) => {
+const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onTogglePaid, isPaid, type, className, onClick }) => {
   const [dragX, setDragX] = useState(0);
   const startX = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   
   const THRESHOLD = 100;
-  const EDGE_MARGIN = 60; // Limite de pixels a partir da esquerda para permitir o swipe
+  const EDGE_MARGIN = 60; 
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const touchX = e.touches[0].clientX - rect.left;
 
-    // Só permite o swipe se o toque começar na "ponta" esquerda (primeiros 60px)
     if (touchX > EDGE_MARGIN) {
       startX.current = null;
       return;
@@ -53,7 +52,6 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onToggl
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
     
-    // Apenas arraste para a direita
     if (diff > 0 && diff < 200) {
        setDragX(diff);
     }
@@ -72,17 +70,16 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onToggl
     <div className="relative overflow-hidden rounded-2xl select-none group touch-pan-y">
       <div 
         className={`absolute inset-0 flex items-center pl-6 transition-colors duration-300 ${
-          dragX > 0 ? (isPaid ? 'bg-slate-300' : 'bg-emerald-500') : 'bg-transparent'
+          dragX > 0 ? (isPaid ? 'bg-slate-300' : (type === 'income' ? 'bg-blue-500' : 'bg-emerald-500')) : 'bg-transparent'
         }`}
       >
         <div className={`transition-opacity duration-200 ${dragX > 40 ? 'opacity-100' : 'opacity-0'} text-white font-bold flex items-center gap-2`}>
            <CheckCircle2 size={24} />
-           {isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+           {isPaid ? 'Marcar como Pendente' : (type === 'income' ? 'Marcar como Recebido' : 'Marcar como Pago')}
         </div>
       </div>
 
       <div
-        ref={containerRef}
         className={`relative transition-transform duration-200 ease-out ${className}`}
         style={{ transform: `translateX(${dragX}px)` }}
         onTouchStart={handleTouchStart}
@@ -107,18 +104,20 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
-  const [selectedCardDetail, setSelectedCardDetail] = useState<CreditCard | null | 'all'>(null);
   const [isFabVisible, setIsFabVisible] = useState(true);
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
 
+  // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [formDate, setFormDate] = useState('');
+  const [type, setType] = useState<TransactionType>('expense');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('monthly');
   const [installments, setInstallments] = useState('12');
+  const [isCardExpense, setIsCardExpense] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -150,35 +149,27 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   };
 
   const activeItems = useMemo(() => {
-    return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate).filter(i => i.type !== 'income');
+    return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
   }, [fixedExpenses, startDate, endDate]);
 
-  const activeExpenses = activeItems;
-
-  const creditCardExpenses = useMemo(() => activeExpenses.filter(i => 
-    i.cardId ||
-    i.title.toLowerCase().includes('cartão') || 
-    i.category.toLowerCase().includes('cartão') ||
-    i.title.toLowerCase().includes('fatura') ||
-    i.title.toLowerCase().includes('card')
-  ), [activeExpenses]);
+  const totalExpenses = activeItems.filter(i => i.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncomes = activeItems.filter(i => i.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
+  
+  // Forecast: Total Expenses - Total Ganhos Fixos
+  const forecastValue = Math.max(0, totalExpenses - totalIncomes);
 
   const totalsByCard = useMemo(() => {
     const totals: Record<string, number> = {};
-    creditCardExpenses.forEach(exp => {
+    activeItems.forEach(exp => {
       if (exp.cardId) {
         totals[exp.cardId] = (totals[exp.cardId] || 0) + exp.amount;
       }
     });
     return totals;
-  }, [creditCardExpenses]);
+  }, [activeItems]);
 
-  const otherExpenses = useMemo(() => activeExpenses.filter(i => 
-    !creditCardExpenses.includes(i)
-  ), [activeExpenses, creditCardExpenses]);
-
-  const totalExpenses = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalCreditCard = creditCardExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const creditCardExpenses = useMemo(() => activeItems.filter(i => !!i.cardId), [activeItems]);
+  const otherItems = useMemo(() => activeItems.filter(i => !i.cardId), [activeItems]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,13 +180,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       title,
       amount: parseFloat(amount),
       category: category || title,
+      type,
       recurrence,
       startDate: formDate, 
       installments: recurrence === 'installments' ? parseInt(installments) : undefined,
-      type: 'expense',
       excludedDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.excludedDates : [],
       paidDates: editingId ? fixedExpenses.find(f => f.id === editingId)?.paidDates : [],
-      cardId: (category === 'Cartão' || title.toLowerCase().includes('cartão')) ? selectedCardId : undefined
+      cardId: isCardExpense ? selectedCardId : undefined
     };
 
     if (editingId) {
@@ -214,16 +205,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setCategory('');
     setAmount('');
     setFormDate('');
+    setType('expense');
     setRecurrence('monthly');
     setInstallments('12');
+    setIsCardExpense(false);
     setSelectedCardId(undefined);
-  };
-
-  const handleQuickCategory = (cat: string) => {
-    setCategory(cat);
-    if (cat !== 'Cartão') {
-       setTitle(cat);
-    }
   };
 
   const openForm = () => {
@@ -242,34 +228,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     setTitle(item.title);
     setCategory(item.category);
     setAmount(item.amount.toString());
+    setType(item.type || 'expense');
     setRecurrence(item.recurrence);
     setInstallments(item.installments ? item.installments.toString() : '12');
     setFormDate(item.startDate);
+    setIsCardExpense(!!item.cardId);
     setSelectedCardId(item.cardId);
     setShowForm(true);
-  };
-
-  const handleDeleteClick = (item: FixedExpense & { occurrenceDate: string }) => {
-    if (item.recurrence === 'single') {
-      onDeleteExpense(item.id);
-    } else {
-      setDeleteModal({ isOpen: true, item });
-    }
-  };
-
-  const handleConfirmDelete = (mode: 'single' | 'all') => {
-    if (!deleteModal.item) return;
-
-    if (mode === 'all') {
-      onDeleteExpense(deleteModal.item.id);
-    } else {
-      const currentItem = fixedExpenses.find(f => f.id === deleteModal.item!.id);
-      if (currentItem) {
-        const updatedExcluded = [...(currentItem.excludedDates || []), deleteModal.item.occurrenceDate];
-        onUpdateExpense({ ...currentItem, excludedDates: updatedExcluded });
-      }
-    }
-    setDeleteModal({ isOpen: false, item: null });
   };
 
   const handleTogglePaid = (item: FixedExpense & { occurrenceDate: string, isPaid: boolean }) => {
@@ -292,41 +257,35 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     <div className="space-y-3">
        {items.map(item => {
          const card = creditCards.find(c => c.id === item.cardId);
-         const isCreditCard = !!item.cardId || (
-            item.title.toLowerCase().includes('cartão') || 
-            item.category.toLowerCase().includes('cartão') ||
-            item.title.toLowerCase().includes('fatura') ||
-            item.title.toLowerCase().includes('card')
-         );
-
-         let remainingBalance = null;
-         if (item.recurrence === 'installments' && item.currentInstallment && item.installments) {
-             const remainingCount = item.installments - (item.currentInstallment - 1);
-             remainingBalance = remainingCount * item.amount;
-         }
+         const isCreditCard = !!item.cardId;
+         const isIncome = item.type === 'income';
 
          return (
          <SwipeableListItem 
             key={`${item.id}-${item.occurrenceDate}`}
             isPaid={item.isPaid}
+            type={item.type}
             onTogglePaid={() => handleTogglePaid(item)}
             onClick={() => handleEdit(item)}
             className={`flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-white dark:bg-slate-900 ${
                item.isPaid 
                  ? 'border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10' 
-                 : isCreditCard 
-                    ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
-                    : 'border-slate-100 dark:border-slate-800'
+                 : isIncome
+                    ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/20'
+                    : isCreditCard 
+                      ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
+                      : 'border-slate-100 dark:border-slate-800'
             }`} 
          >
             <div className={`flex items-center gap-3 flex-1 min-w-0 ${item.isPaid ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center relative ${
-                 isCreditCard
-                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                    : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+                 isIncome
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                    : isCreditCard
+                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                      : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
-                  {isCreditCard ? <CardIcon size={18} /> : <Receipt size={18} />}
-                  
+                  {isIncome ? <TrendingUp size={18} /> : isCreditCard ? <CardIcon size={18} /> : <Receipt size={18} />}
                   {item.isPaid && (
                       <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
                           <CheckCircle2 size={10} strokeWidth={3} />
@@ -334,18 +293,16 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   )}
                </div>
                <div className="min-w-0 flex-1">
-                  {isCreditCard && (
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                       <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider leading-none truncate">
-                         Cartão de Crédito
-                       </p>
-                       {card && (
-                         <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
-                            {card.name}
-                         </span>
-                       )}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <p className={`text-[9px] font-extrabold uppercase tracking-wider leading-none truncate ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-600' : 'text-rose-500'}`}>
+                      {isIncome ? 'Ganho Fixo' : isCreditCard ? 'Cartão de Crédito' : 'Gasto Fixo'}
+                    </p>
+                    {card && (
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
+                         {card.name}
+                      </span>
+                    )}
+                  </div>
                   <p className={`font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight ${item.isPaid ? 'line-through decoration-emerald-500/50' : ''}`}>
                       {item.title}
                   </p>
@@ -355,52 +312,22 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                         {item.currentInstallment}/{item.installments}
                       </span>
                     )}
-                    {item.recurrence === 'single' && (
-                       <span className="text-[9px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-md uppercase whitespace-nowrap">
-                          Única
-                       </span>
-                    )}
                     {item.recurrence === 'monthly' && (
-                       <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
-                          Mensal
-                       </span>
+                       <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">Mensal</span>
                     )}
-                     {item.isPaid && (
-                         <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">PAGO</span>
-                     )}
+                    {item.recurrence === 'single' && (
+                       <span className="text-[9px] text-amber-500 font-bold uppercase whitespace-nowrap">Avulsa (Só este mês)</span>
+                    )}
                   </div>
                </div>
             </div>
             <div className={`flex flex-col items-end pl-2 shrink-0 ${item.isPaid ? 'opacity-60' : ''}`}>
-               <span className={`font-bold text-sm whitespace-nowrap ${isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                 {formatCurrency(item.amount)}
+               <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                 {isIncome ? '+ ' : '- '}{formatCurrency(item.amount)}
                </span>
-               
-               {remainingBalance !== null && (
-                   <span className="text-[9px] text-slate-400 font-medium mt-[-2px] whitespace-nowrap">
-                       Resta: {formatCurrency(remainingBalance)}
-                   </span>
-               )}
-
                <div className="flex items-center -mr-1 mt-1">
-                 <button 
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     handleEdit(item);
-                   }}
-                   className="p-1.5 text-slate-300 hover:text-amber-500 transition-colors"
-                 >
-                   <Edit2 size={14} />
-                 </button>
-                 <button 
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     handleDeleteClick(item);
-                   }}
-                   className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
-                 >
-                   <Trash2 size={14} />
-                 </button>
+                 <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1.5 text-slate-300 hover:text-amber-500"><Edit2 size={14} /></button>
+                 <button onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, item }); }} className="p-1.5 text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
                </div>
             </div>
          </SwipeableListItem>
@@ -408,18 +335,11 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     </div>
   );
 
-  const formTotalValue = useMemo(() => {
-      if (recurrence === 'installments' && amount && installments) {
-          return parseFloat(amount) * parseInt(installments);
-      }
-      return 0;
-  }, [recurrence, amount, installments]);
-
   return (
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
       <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Contas Fixas 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas do mês. <br/><span className="text-xs opacity-70">Deslize para direita (pela borda) para pagar 👉</span></p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Contas do Ciclo 🧾</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Organize seus ganhos e gastos fixos.</p>
       </header>
 
       <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
@@ -435,254 +355,123 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Card className="bg-gradient-to-br from-rose-500 to-rose-700 text-white border-none shadow-lg shadow-rose-500/20 p-4">
-             <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">Total a Pagar</div>
-             <div className="text-2xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
-        </Card>
+      {/* Forecast Card: Compacto conforme pedido */}
+      <div className="px-2">
+        <div className="bg-blue-600 dark:bg-blue-700 p-3.5 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-white/20 p-1.5 rounded-lg text-white">
+              <Info size={16} />
+            </div>
+            <span className="text-[11px] font-bold text-white/90 uppercase tracking-tight">Previsão Real do Mês</span>
+          </div>
+          <div className="text-lg font-extrabold text-white tracking-tight">
+            {formatCurrency(forecastValue)}
+          </div>
+        </div>
+      </div>
 
-        <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
-          {creditCards.length > 0 ? (
-            creditCards.map(card => {
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Card title="Ganhos Fixos" variant="success" className="p-5">
+             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalIncomes)}</div>
+          </Card>
+          <Card title="Gastos Fixos" variant="danger" className="p-5">
+             <div className="text-xl font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+          </Card>
+        </div>
+
+        {creditCards.length > 0 && (
+          <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            {creditCards.map(card => {
               const cardTotal = totalsByCard[card.id] || 0;
               const available = card.limit > 0 ? card.limit - cardTotal : null;
               return (
                 <Card 
                   key={card.id}
-                  onClick={() => setSelectedCardDetail(card)}
-                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer active:scale-[0.99] p-4 flex flex-col justify-between"
+                  className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm p-4"
                 >
-                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: card.color }}></div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-                        {card.name}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
+                    <div className="text-[10px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
                   </div>
-                  <div className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    {formatCurrency(cardTotal)}
-                  </div>
+                  <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(cardTotal)}</div>
                   {available !== null && (
-                    <div className="mt-2 pt-2 border-t border-slate-50 dark:border-slate-800">
-                      <div className="text-[8px] font-bold uppercase text-slate-400 tracking-tighter">Limite Disponível</div>
-                      <div className={`text-xs font-bold ${available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {formatCurrency(Math.max(0, available))}
-                      </div>
+                    <div className={`mt-2 text-[10px] font-bold ${available >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {available >= 0 ? 'Disponível: ' : 'Excedido: '} {formatCurrency(Math.abs(available))}
                     </div>
                   )}
-                  <div className="text-[9px] text-slate-400 mt-1 font-medium flex items-center gap-0.5 justify-end">
-                    Ver <ChevronRight size={8} />
-                  </div>
                 </Card>
               );
-            })
-          ) : (
-             <Card 
-              onClick={() => setSelectedCardDetail('all')}
-              className="bg-gradient-to-br from-purple-600 to-violet-800 text-white border-none shadow-lg shadow-purple-500/20 cursor-pointer active:scale-[0.99] p-4"
-             >
-                <div className="flex flex-col h-full justify-between">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1 flex items-center gap-1.5">
-                        <CardIcon size={10} />
-                        Cartão (Geral)
-                      </div>
-                      <div className="text-xl font-bold tracking-tight">{formatCurrency(totalCreditCard)}</div>
-                    </div>
-                </div>
-             </Card>
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="space-y-3">
-         <div className="flex justify-between items-center px-2 mt-2">
+      <div className="space-y-4">
+         <div className="flex justify-between items-center px-2">
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Receipt size={14} />
-              Contas do Mês
+              <ScrollText size={14} /> Lista de Itens
             </h3>
-            {activeExpenses.length === 0 && (
-              <span className="text-[10px] text-slate-400">Nenhuma conta</span>
-            )}
          </div>
-
-         {/* AGGREGATED CREDIT CARD ROW - Exibe o total acumulado de todos os cartões */}
-         {totalCreditCard > 0 && (
-            <div 
-                onClick={() => setSelectedCardDetail('all')}
-                className="flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800"
-            >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-                        <CardIcon size={18} />
+         {activeItems.length > 0 ? (
+            <div className="space-y-4">
+               {otherItems.length > 0 && renderList(otherItems)}
+               {creditCardExpenses.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase ml-2 flex items-center gap-1">
+                       <CardIcon size={12} /> Cartão de Crédito
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5 leading-none truncate">
-                            Total Acumulado
-                        </p>
-                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight">
-                            Cartão de Crédito
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9px] text-slate-400 font-medium uppercase whitespace-nowrap">
-                            {creditCardExpenses.length} lançamentos {creditCards.length > 1 ? `em ${creditCards.length} cartões` : ''}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 pl-2 shrink-0">
-                <span className="font-bold text-sm whitespace-nowrap text-purple-700 dark:text-purple-400">
-                    {formatCurrency(totalCreditCard)}
-                </span>
-                <ChevronRight size={16} className="text-purple-300 dark:text-purple-500" />
-                </div>
+                    {renderList(creditCardExpenses)}
+                  </div>
+               )}
+            </div>
+         ) : (
+            <div className="text-center py-10 text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-800">
+               <Receipt size={40} className="mx-auto mb-2 opacity-20" />
+               <p className="text-sm font-medium">Nenhum item fixo neste ciclo.</p>
             </div>
          )}
-
-         {otherExpenses.length > 0 && renderList(otherExpenses)}
       </div>
 
-      <button 
-        onClick={openForm}
-        className={`fixed bottom-32 right-6 z-50 w-16 h-16 bg-blue-600 rounded-[1.25rem] shadow-2xl shadow-blue-500/30 flex items-center justify-center text-white transition-all duration-300 border-4 border-slate-50 dark:border-slate-950 hover:bg-blue-500 ${
-          isFabVisible 
-            ? 'scale-100 opacity-100 translate-y-0' 
-            : 'scale-0 opacity-0 translate-y-12 pointer-events-none'
-        } active:scale-95`}
-      >
+      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-16 h-16 bg-slate-900 dark:bg-white rounded-[1.25rem] shadow-2xl flex items-center justify-center text-white dark:text-slate-950 active:scale-95 transition-all">
         <Plus size={32} strokeWidth={2.5} />
       </button>
 
-      {selectedCardDetail && (
-         <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="px-4 py-4 flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-10">
-                 <button 
-                    onClick={() => setSelectedCardDetail(null)}
-                    className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
-                 >
-                    <ChevronLeft size={24} />
-                 </button>
-                 <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                        {selectedCardDetail === 'all' ? 'Todos os Cartões' : selectedCardDetail.name}
-                    </h2>
-                    <p className="text-xs text-slate-500">{periodLabel}</p>
-                 </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 pb-32">
-                 <div 
-                    className="rounded-[2rem] p-6 text-white shadow-xl mb-6 transition-all duration-500"
-                    style={{ 
-                        background: (selectedCardDetail !== 'all' && selectedCardDetail)
-                           ? `linear-gradient(135deg, ${selectedCardDetail.color}dd, ${selectedCardDetail.color})` 
-                           : 'linear-gradient(135deg, #7c3aed, #4c1d95)',
-                        boxShadow: `0 10px 25px -5px ${(selectedCardDetail !== 'all' && selectedCardDetail) ? selectedCardDetail.color : '#7c3aed'}55`
-                    }}
-                 >
-                    <div className="flex items-center gap-3 mb-2 opacity-80">
-                        <CardIcon size={18} />
-                        <span className="text-sm font-bold uppercase tracking-wider">
-                          {selectedCardDetail === 'all' ? 'Total Faturado' : 'Fatura do Ciclo'}
-                        </span>
-                    </div>
-                    <div className="text-3xl font-bold tracking-tight">
-                        {formatCurrency((selectedCardDetail !== 'all' && selectedCardDetail) ? (totalsByCard[selectedCardDetail.id] || 0) : totalCreditCard)}
-                    </div>
-                    {(selectedCardDetail !== 'all' && selectedCardDetail && selectedCardDetail.limit > 0) && (
-                      <div className="mt-4 pt-4 border-t border-white/20">
-                         <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Limite Disponível Atual</div>
-                         <div className="text-xl font-bold">
-                           {formatCurrency(Math.max(0, selectedCardDetail.limit - (totalsByCard[selectedCardDetail.id] || 0)))}
-                         </div>
-                      </div>
-                    )}
-                 </div>
-
-                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 px-2">
-                    Lançamentos
-                 </h3>
-                 
-                 {creditCardExpenses.filter(e => selectedCardDetail === 'all' || e.cardId === (selectedCardDetail as CreditCard).id).length > 0 ? (
-                     renderList(creditCardExpenses.filter(e => selectedCardDetail === 'all' || e.cardId === (selectedCardDetail as CreditCard).id))
-                 ) : (
-                     <div className="text-center py-10 text-slate-400">
-                        <CardIcon size={48} className="mx-auto mb-4 opacity-20" />
-                        <p>Nenhum lançamento encontrado.</p>
-                     </div>
-                 )}
-            </div>
-         </div>
-      )}
-
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center">
-          <div 
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
-            onClick={() => setShowForm(false)}
-          />
-          
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden border border-slate-200/50 dark:border-slate-700/50 mb-2 sm:mb-0">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowForm(false)} />
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingId ? 'Editar' : 'Adicionar'} Conta
-              </h3>
-              <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500">
-                <X size={20} />
-              </button>
+              <h3 className="text-lg font-bold dark:text-white">{editingId ? 'Editar' : 'Novo'} Item Fixo</h3>
+              <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
             </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex">
+                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>
+                  <TrendingUp size={16} /> Ganho
+                </button>
+                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}>
+                  <TrendingDown size={16} /> Gasto
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Valor</label>
-                <div className="relative group">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">R$</span>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    required
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-2xl pl-10 pr-3 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold transition-all border border-transparent"
-                    inputMode="decimal"
-                  />
+              <div className="space-y-3">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
+                  <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-10 rounded-xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
                 </div>
-              </div>
-              
-              <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Data de Vencimento</label>
-                <input 
-                  type="date" 
-                  required
-                  value={formDate}
-                  onChange={e => setFormDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none transition-all font-medium border border-transparent text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Descrição</label>
-                <input 
-                  type="text" 
-                  required
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="Ex: Aluguel"
-                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-sm"
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {EXPENSE_CATEGORIES.map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => handleQuickCategory(cat)}
-                      className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-colors ${
-                        category === cat
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
+                <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="Nome (ex: Aluguel / Salário)" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-xl font-medium focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+                <div className="flex flex-wrap gap-2">
+                  {(type === 'expense' ? EXPENSE_CATEGORIES : ['Salário', 'Freelance', 'Bônus', 'Outros']).map(cat => (
+                    <button 
+                      key={cat} 
+                      type="button" 
+                      onClick={() => {
+                        setCategory(cat);
+                        if (cat === 'Cartão') setIsCardExpense(true);
+                        else if (type === 'income') setIsCardExpense(false);
+                      }} 
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors ${category === cat ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent'}`}
                     >
                       {cat}
                     </button>
@@ -690,149 +479,82 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                 </div>
               </div>
 
-              {(category === 'Cartão' || title.toLowerCase().includes('cartão')) && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Selecione o Cartão</label>
-                   {creditCards.length > 0 ? (
-                     <div className="grid grid-cols-2 gap-2 mt-1">
-                        {creditCards.map(card => (
-                          <button
-                            key={card.id}
-                            type="button"
-                            onClick={() => setSelectedCardId(card.id)}
-                            className={`flex items-center gap-2 p-2 rounded-xl border text-[10px] font-bold transition-all ${
-                              selectedCardId === card.id 
-                                ? 'bg-purple-100 border-purple-500 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' 
-                                : 'bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400'
-                            }`}
-                          >
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
-                            {card.name}
-                          </button>
-                        ))}
-                     </div>
-                   ) : (
-                     <p className="text-[10px] text-rose-500 italic mt-1 bg-rose-50 dark:bg-rose-900/20 p-2 rounded-lg">
-                       Crie cartões nas configurações para selecioná-los aqui.
-                     </p>
-                   )}
-                </div>
-              )}
+              {/* CARD SELECTION SECTION */}
+              {type === 'expense' && (
+                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardIcon size={16} className="text-purple-500" />
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Pagamento no Cartão?</span>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsCardExpense(!isCardExpense);
+                        if (!isCardExpense && creditCards.length > 0 && !selectedCardId) {
+                          setSelectedCardId(creditCards[0].id);
+                        }
+                      }}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${isCardExpense ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${isCardExpense ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
 
-              <div className="bg-slate-50 dark:bg-slate-950 p-1 rounded-xl grid grid-cols-3 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setRecurrence('monthly')}
-                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
-                    recurrence === 'monthly' 
-                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm' 
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  }`}
-                >
-                  <Repeat size={14} />
-                  Mensal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecurrence('installments')}
-                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
-                    recurrence === 'installments' 
-                      ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-sm' 
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  }`}
-                >
-                  <Clock size={14} />
-                  Parcelas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecurrence('single')}
-                  className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
-                    recurrence === 'single' 
-                      ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm' 
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  }`}
-                >
-                  <Calendar size={14} />
-                  Única
-                </button>
-              </div>
-
-              {recurrence === 'installments' && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 uppercase font-bold tracking-wider">Número de Parcelas</label>
-                   <input 
-                    type="number" 
-                    min="1"
-                    max="999"
-                    value={installments}
-                    onChange={e => setInstallments(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium text-sm"
-                  />
-                  {formTotalValue > 0 && (
-                      <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                          <div className="bg-amber-200 dark:bg-amber-800 p-1 rounded-full">
-                              <TrendingUp size={10} className="text-amber-800 dark:text-amber-200"/>
-                          </div>
-                          <div className="text-[10px] font-medium">
-                             <span className="opacity-70 mr-1">Total:</span> 
-                             <span className="font-bold text-xs">{formatCurrency(formTotalValue)}</span>
-                          </div>
-                      </div>
+                  {isCardExpense && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                      {creditCards.length > 0 ? (
+                        <div className="flex flex-col gap-2 pt-2">
+                          {creditCards.map(card => (
+                            <button
+                              key={card.id}
+                              type="button"
+                              onClick={() => setSelectedCardId(card.id)}
+                              className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedCardId === card.id ? 'bg-white dark:bg-slate-800 shadow-sm' : 'bg-slate-100/50 dark:bg-slate-900/50 opacity-60 border-transparent'}`}
+                              style={{ borderColor: selectedCardId === card.id ? card.color : 'transparent' }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.color }}></div>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
+                              </div>
+                              {selectedCardId === card.id && <CheckCircle2 size={16} style={{ color: card.color }} />}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/20 p-2 rounded-lg text-center">
+                          Nenhum cartão cadastrado. Vá em Ajustes para adicionar.
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              <button 
-                type="submit"
-                className="w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all active:scale-95 mt-1 text-white bg-rose-600 hover:bg-rose-700 shadow-rose-500/30"
-              >
-                {editingId ? 'Salvar Alterações' : 'Salvar Conta'}
+              <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Repeat size={16} className="text-blue-500" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Recorrência</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                   <button type="button" onClick={() => setRecurrence('monthly')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'monthly' ? 'bg-white dark:bg-slate-800 border-blue-500/50 shadow-sm text-blue-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Mensal</button>
+                   <button type="button" onClick={() => setRecurrence('installments')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'installments' ? 'bg-white dark:bg-slate-800 border-amber-500/50 shadow-sm text-amber-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Parcelas</button>
+                   <button type="button" onClick={() => setRecurrence('single')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'single' ? 'bg-white dark:bg-slate-800 border-purple-500/50 shadow-sm text-purple-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Avulsa</button>
+                </div>
+                {recurrence === 'installments' && (
+                  <div className="animate-in fade-in slide-in-from-top-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Quantidade de Parcelas</label>
+                    <input type="number" value={installments} onChange={e => setInstallments(e.target.value)} placeholder="Ex: 12" className="w-full bg-white dark:bg-slate-900 p-3 rounded-lg text-sm font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-transform ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>
+                {editingId ? 'Salvar Alterações' : 'Adicionar Item'}
               </button>
             </form>
           </div>
         </div>
-      )}
-
-      {deleteModal.isOpen && (
-         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div 
-               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200"
-               onClick={() => setDeleteModal({ isOpen: false, item: null })}
-            />
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
-               <div className="text-center mb-6">
-                  <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                     <Trash2 size={24} />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Excluir Item Recorrente</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                     Você deseja apagar somente deste mês ou parar de cobrar para sempre?
-                  </p>
-               </div>
-               
-               <div className="space-y-3">
-                  <button 
-                     onClick={() => handleConfirmDelete('single')}
-                     className="w-full py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all"
-                  >
-                     Apenas deste mês
-                  </button>
-                  <button 
-                     onClick={() => handleConfirmDelete('all')}
-                     className="w-full py-3.5 bg-rose-600 text-white font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-700 active:scale-95 transition-all"
-                  >
-                     Apagar Tudo (Todos os meses)
-                  </button>
-                  <button 
-                     onClick={() => setDeleteModal({ isOpen: false, item: null })}
-                     className="w-full py-2 text-slate-400 dark:text-slate-500 text-sm font-medium hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                  >
-                     Cancelar
-                  </button>
-               </div>
-            </div>
-         </div>
       )}
     </div>
   );

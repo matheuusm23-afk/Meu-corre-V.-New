@@ -23,24 +23,26 @@ export interface FixedExpense {
   title: string;
   amount: number;
   category: string;
+  type: TransactionType; // 'income' or 'expense'
   startDate: string; // ISO Date (YYYY-MM-DD) indicating when this expense starts
   recurrence: RecurrenceType;
   installments?: number; // Total number of installments if recurrence is 'installments'
-  type?: 'income' | 'expense'; // Added to support fixed incomes. Defaults to 'expense' if undefined.
   excludedDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were deleted
   paidDates?: string[]; // Array of ISO Date strings (YYYY-MM-DD) for specific occurrences that were marked as paid
   cardId?: string; // Optional reference to a CreditCard
 }
 
 export interface GoalSettings {
-  monthlyGoal: number; // Deprecated in favor of dynamic calculation, but kept for structure
-  monthlyGoals?: Record<string, number>; // Deprecated, kept for migration
+  monthlyGoal: number; // Deprecated
+  monthlyGoals?: Record<string, number>; // Deprecated
   daysOff: string[]; // Array of ISO date strings (YYYY-MM-DD)
   startDayOfMonth: number; // 1-31
   endDayOfMonth?: number; // 1-31, or undefined for automatic (startDay - 1)
+  dailySavingTarget: number; // Valor que o usuário quer guardar por dia
+  savingsDates: string[]; // Dias em que o usuário efetivamente guardou o dinheiro
 }
 
-export type ViewMode = 'home' | 'goals' | 'settings' | 'fixed-expenses';
+export type ViewMode = 'home' | 'goals' | 'yearly-goals' | 'settings' | 'fixed-expenses';
 
 export interface SummaryData {
   income: number;

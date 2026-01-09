@@ -1,4 +1,5 @@
 
+// Fix: Use the correct TransactionType and FixedExpense type for balance calculation.
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { ExpensePieChart } from './ui/PieChart';
@@ -113,13 +114,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [transactions, today]);
 
   const monthBalance = useMemo(() => {
-    const manualTotal = currentPeriodTransactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+    const manualBalance = currentPeriodTransactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
     const relevantFixed = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
-    const paidFixed = relevantFixed.filter(e => e.type !== 'income' && e.isPaid).reduce((acc, e) => acc + e.amount, 0);
-    return manualTotal - paidFixed;
+    
+    const fixedIncomes = relevantFixed.filter(e => e.type === 'income').reduce((acc, e) => acc + e.amount, 0);
+    const paidFixedExpenses = relevantFixed.filter(e => e.type === 'expense' && e.isPaid).reduce((acc, e) => acc + e.amount, 0);
+    
+    return manualBalance + fixedIncomes - paidFixedExpenses;
   }, [currentPeriodTransactions, fixedExpenses, startDate, endDate]);
 
-  const monthGrossIncome = useMemo(() => currentPeriodTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0), [currentPeriodTransactions]);
+  const monthGrossIncome = useMemo(() => {
+    const manualIncome = currentPeriodTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const relevantFixed = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    const fixedIncome = relevantFixed.filter(e => e.type === 'income').reduce((acc, e) => acc + e.amount, 0);
+    return manualIncome + fixedIncome;
+  }, [currentPeriodTransactions, fixedExpenses, startDate, endDate]);
 
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -209,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <Card title="Saldo da Conta" value={formatCurrency(monthBalance)} variant="primary" valueClassName="text-3xl">
         <div className="flex items-center justify-between mt-2">
-           <span className="text-[10px] text-blue-100/60 font-medium">Ciclo selecionado</span>
+           <span className="text-[10px] text-blue-100/60 font-medium">Incluindo fixos e manuais</span>
            <span className="text-xs font-bold text-white/90 bg-white/20 px-2 py-1 rounded-lg">Bruto: {formatCurrency(monthGrossIncome)}</span>
         </div>
       </Card>
@@ -240,44 +249,60 @@ export const Dashboard: React.FC<DashboardProps> = ({
           Object.keys(groupedTransactions).sort().reverse().map(dateKey => (
             <div key={dateKey} className="space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase ml-2 mt-4">{formatDateFull(dateKey)}</h3>
-              {groupedTransactions[dateKey].map(t => (
-                <div 
-                  key={t.id} 
-                  onClick={() => handleOpenForm(t)}
-                  className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center active:scale-[0.99] transition-transform cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                      {getTransactionIcon(t)}
+              {groupedTransactions[dateKey].map(t => {
+                const isIncome = t.type === 'income';
+                const parts = t.description.split(' - ');
+                const displayDesc = parts[0];
+                const displayCat = parts.length > 1 ? parts[parts.length - 1] : '';
+
+                return (
+                  <div 
+                    key={t.id} 
+                    onClick={() => handleOpenForm(t)}
+                    className={`p-4 rounded-2xl border shadow-sm flex justify-between items-center active:scale-[0.99] transition-all cursor-pointer group ${
+                      isIncome 
+                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-800/50' 
+                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {getTransactionIcon(t)}
+                      </div>
+                      <div>
+                        {displayCat && (
+                          <span className={`text-[9px] font-extrabold uppercase tracking-wider block mb-0.5 ${isIncome ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {displayCat}
+                          </span>
+                        )}
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{displayDesc}</p>
+                        <p className="text-[10px] text-slate-500">{formatDate(t.date)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t.description}</p>
-                      <p className="text-[10px] text-slate-500">{formatDate(t.date)}</p>
+                    <div className="flex items-center gap-4">
+                      <span className={`font-bold text-sm ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-slate-100'}`}>
+                        {t.type === 'expense' ? '- ' : '+ '}{formatCurrency(t.amount)}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
+                          className="p-2 text-slate-400 hover:text-amber-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onDeleteTransaction(t.id); }}
+                          className="p-2 text-slate-400 hover:text-rose-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`font-bold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-slate-900 dark:text-slate-100'}`}>
-                      {t.type === 'expense' ? '- ' : '+ '}{formatCurrency(t.amount)}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
-                        className="p-2 text-slate-400 hover:text-amber-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Editar"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onDeleteTransaction(t.id); }}
-                        className="p-2 text-slate-400 hover:text-rose-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))
         )}
@@ -293,25 +318,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingId ? 'Editar' : 'Novo'} Lançamento</h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex">
-                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}><TrendingUp size={16} /> Ganho</button>
-                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}><TrendingDown size={16} /> Despesa</button>
+                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}><TrendingUp size={16} /> Ganho</button>
+                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}><TrendingDown size={16} /> Despesa</button>
               </div>
-              <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="R$ 0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 rounded-xl font-bold focus:outline-none" />
-              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none" />
-              <input type="text" required value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição" className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none" />
+              <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="R$ 0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 rounded-xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+              <input type="text" required value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição" className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
               <div className="flex flex-wrap gap-2">
                 {(type === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(tag => (
-                  <button key={tag} type="button" onClick={() => setCategory(tag)} className={`text-[10px] font-bold px-3 py-1.5 rounded-lg ${category === tag ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>{tag}</button>
+                  <button key={tag} type="button" onClick={() => setCategory(tag)} className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${category === tag ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-transparent'}`}>{tag}</button>
                 ))}
               </div>
-              <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg ${type === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>{editingId ? 'Salvar' : 'Adicionar'}</button>
+              <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>{editingId ? 'Salvar' : 'Adicionar'}</button>
             </form>
           </div>
         </div>

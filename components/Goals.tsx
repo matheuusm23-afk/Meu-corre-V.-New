@@ -1,4 +1,5 @@
 
+// Fix: Use the correct types for FixedExpense items in goal calculation, as they do not have a .type property.
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
@@ -50,15 +51,16 @@ export const Goals: React.FC<GoalsProps> = ({
     [fixedExpenses, startDate, endDate]
   );
 
-  const totalBillsToCover = useMemo(() => {
+  const netBillsGap = useMemo(() => {
     const totalExpenses = relevantFixedItems
-      .filter(e => e.type !== 'income')
+      .filter(e => e.type === 'expense')
       .reduce((acc, curr) => acc + curr.amount, 0);
       
     const totalFixedIncome = relevantFixedItems
       .filter(e => e.type === 'income')
       .reduce((acc, curr) => acc + curr.amount, 0);
 
+    // If income > expenses, gap is zero (user is already covered)
     return Math.max(0, totalExpenses - totalFixedIncome);
   }, [relevantFixedItems]);
 
@@ -74,8 +76,8 @@ export const Goals: React.FC<GoalsProps> = ({
   }, [transactions, startDate, endDate]);
 
   const remainingToEarn = useMemo(() => {
-    return Math.max(0, totalBillsToCover - netWorkProfit);
-  }, [totalBillsToCover, netWorkProfit]);
+    return Math.max(0, netBillsGap - netWorkProfit);
+  }, [netBillsGap, netWorkProfit]);
 
   const incomeToday = useMemo(() => {
     return transactions
@@ -83,8 +85,8 @@ export const Goals: React.FC<GoalsProps> = ({
       .reduce((acc, t) => acc + t.amount, 0);
   }, [transactions, today]);
 
-  const progressPercent = totalBillsToCover > 0 
-    ? Math.max(0, Math.min(100, (netWorkProfit / totalBillsToCover) * 100))
+  const progressPercent = netBillsGap > 0 
+    ? Math.max(0, Math.min(100, (netWorkProfit / netBillsGap) * 100))
     : (netWorkProfit >= 0 ? 100 : 0);
 
   const periodLabel = useMemo(() => {
@@ -200,7 +202,7 @@ export const Goals: React.FC<GoalsProps> = ({
 
   } else if (isFutureView) {
     const totalDays = workDaysDetails.totalInCycle;
-    dailyTargetDisplay = totalDays > 0 ? totalBillsToCover / totalDays : 0;
+    dailyTargetDisplay = totalDays > 0 ? netBillsGap / totalDays : 0;
     helperText = `Previsão baseada em ${totalDays} dias de trabalho`;
   } else {
     dailyTargetDisplay = 0;
@@ -275,7 +277,7 @@ export const Goals: React.FC<GoalsProps> = ({
   return (
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
        <header className="px-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Metas & Foco 🎯</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Organização de trabalho 🎯</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Acompanhe seu progresso.</p>
       </header>
 
@@ -294,7 +296,7 @@ export const Goals: React.FC<GoalsProps> = ({
 
       {isCurrentCycleView && (
         <div className="grid grid-cols-2 gap-5">
-          <Card title="Já Feito">
+          <Card title="Corre do Mês">
             <div className={`text-xl font-bold mt-1 tracking-tight ${netWorkProfit < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {formatCurrency(netWorkProfit)}
             </div>
@@ -305,12 +307,12 @@ export const Goals: React.FC<GoalsProps> = ({
               {Math.round(progressPercent)}% das contas cobertas
             </div>
           </Card>
-          <Card title="Falta">
+          <Card title="Gap a Cobrir">
             <div className="text-slate-800 dark:text-slate-200 text-xl font-bold mt-1 tracking-tight">
               {formatCurrency(remainingToEarn)}
             </div>
             <div className="text-xs text-slate-400 mt-3">
-              Para quitar tudo! 🏍️
+              Abatendo ganhos fixos 🏍️
             </div>
           </Card>
         </div>
@@ -359,8 +361,8 @@ export const Goals: React.FC<GoalsProps> = ({
       </Card>
 
       <Card 
-        title="Calendário" 
-        subtitle={`Toque para marcar folgas`} 
+        title="Folgas" 
+        subtitle={`Toque para marcar dias sem corre`} 
         icon={<CalIcon className="text-slate-400"/>}
       >
         <div className="mt-4 overflow-hidden">

@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { Goals } from './components/Goals';
 import { Settings } from './components/Settings';
 import { FixedExpenses } from './components/FixedExpenses';
+import { YearlyGoals } from './components/YearlyGoals';
 import { BottomNav } from './components/ui/BottomNav';
 import { Transaction, GoalSettings, ViewMode, FixedExpense, CreditCard } from './types';
 
@@ -31,6 +32,8 @@ const App: React.FC = () => {
     monthlyGoals: {}, 
     daysOff: [],
     startDayOfMonth: 1,
+    dailySavingTarget: 0,
+    savingsDates: []
   });
 
   // Persistence
@@ -48,14 +51,11 @@ const App: React.FC = () => {
       setGoalSettings({
         ...parsed,
         monthlyGoals: parsed.monthlyGoals || {}, 
-        startDayOfMonth: parsed.startDayOfMonth || 1
+        startDayOfMonth: parsed.startDayOfMonth || 1,
+        dailySavingTarget: parsed.dailySavingTarget || 0,
+        savingsDates: parsed.savingsDates || []
       });
     }
-
-    // Real Analytics: Visit Counter
-    const visits = localStorage.getItem('app_visits');
-    const newVisits = visits ? parseInt(visits) + 1 : 1;
-    localStorage.setItem('app_visits', newVisits.toString());
   }, []);
 
   useEffect(() => {
@@ -86,42 +86,16 @@ const App: React.FC = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Actions
-  const handleAddTransaction = (t: Transaction) => {
-    setTransactions(prev => [...prev, t]);
-  };
-
-  const handleUpdateTransaction = (updatedT: Transaction) => {
-    setTransactions(prev => prev.map(t => t.id === updatedT.id ? updatedT : t));
-  };
-
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleAddFixedExpense = (e: FixedExpense) => {
-    setFixedExpenses(prev => [...prev, e]);
-  };
-
-  const handleUpdateFixedExpense = (updated: FixedExpense) => {
-    setFixedExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
-  };
-
-  const handleDeleteFixedExpense = (id: string) => {
-    setFixedExpenses(prev => prev.filter(e => e.id !== id));
-  };
-
-  const handleAddCard = (card: CreditCard) => {
-    setCreditCards(prev => [...prev, card]);
-  };
-
-  const handleUpdateCard = (updatedCard: CreditCard) => {
-    setCreditCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
-  };
-
+  const handleAddTransaction = (t: Transaction) => setTransactions(prev => [...prev, t]);
+  const handleUpdateTransaction = (updatedT: Transaction) => setTransactions(prev => prev.map(t => t.id === updatedT.id ? updatedT : t));
+  const handleDeleteTransaction = (id: string) => setTransactions(prev => prev.filter(t => t.id !== id));
+  const handleAddFixedExpense = (e: FixedExpense) => setFixedExpenses(prev => [...prev, e]);
+  const handleUpdateFixedExpense = (updated: FixedExpense) => setFixedExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
+  const handleDeleteFixedExpense = (id: string) => setFixedExpenses(prev => prev.filter(e => e.id !== id));
+  const handleAddCard = (card: CreditCard) => setCreditCards(prev => [...prev, card]);
+  const handleUpdateCard = (updatedCard: CreditCard) => setCreditCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
   const handleDeleteCard = (id: string) => {
     setCreditCards(prev => prev.filter(c => c.id !== id));
-    // Optionally remove cardId reference from fixedExpenses
     setFixedExpenses(prev => prev.map(e => e.cardId === id ? { ...e, cardId: undefined } : e));
   };
 
@@ -129,7 +103,7 @@ const App: React.FC = () => {
     setTransactions([]);
     setFixedExpenses([]);
     setCreditCards([]);
-    setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1 });
+    setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1, dailySavingTarget: 0, savingsDates: [] });
     localStorage.clear();
   };
 
@@ -154,6 +128,12 @@ const App: React.FC = () => {
             transactions={transactions}
             onUpdateSettings={setGoalSettings}
             fixedExpenses={fixedExpenses}
+          />
+        )}
+        {currentView === 'yearly-goals' && (
+          <YearlyGoals 
+            goalSettings={goalSettings}
+            onUpdateSettings={setGoalSettings}
           />
         )}
         {currentView === 'fixed-expenses' && (
