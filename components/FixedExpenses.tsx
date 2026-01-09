@@ -33,8 +33,18 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onToggl
   const containerRef = useRef<HTMLDivElement>(null);
   
   const THRESHOLD = 100;
+  const EDGE_MARGIN = 60; // Limite de pixels a partir da esquerda para permitir o swipe
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touchX = e.touches[0].clientX - rect.left;
+
+    // Só permite o swipe se o toque começar na "ponta" esquerda (primeiros 60px)
+    if (touchX > EDGE_MARGIN) {
+      startX.current = null;
+      return;
+    }
+
     startX.current = e.touches[0].clientX;
   };
 
@@ -43,13 +53,14 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ children, onToggl
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
     
+    // Apenas arraste para a direita
     if (diff > 0 && diff < 200) {
        setDragX(diff);
     }
   };
 
   const handleTouchEnd = () => {
-    if (dragX > THRESHOLD) {
+    if (startX.current !== null && dragX > THRESHOLD) {
        onTogglePaid();
        if (navigator.vibrate) navigator.vibrate(50);
     }
@@ -408,7 +419,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     <div className="flex flex-col gap-6 pb-32 pt-8 px-2">
       <header className="px-2">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Contas Fixas 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas do mês. <br/><span className="text-xs opacity-70">Deslize para direita para marcar como pago 👉</span></p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Contas do mês. <br/><span className="text-xs opacity-70">Deslize para direita (pela borda) para pagar 👉</span></p>
       </header>
 
       <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-[1.5rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
@@ -434,21 +445,32 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
           {creditCards.length > 0 ? (
             creditCards.map(card => {
               const cardTotal = totalsByCard[card.id] || 0;
+              const available = card.limit > 0 ? card.limit - cardTotal : null;
               return (
                 <Card 
                   key={card.id}
                   onClick={() => setSelectedCardDetail(card)}
                   className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer active:scale-[0.99] p-4 flex flex-col justify-between"
                 >
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-                      {card.name}
+                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: card.color }}></div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                        {card.name}
+                      </div>
                     </div>
                   </div>
                   <div className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                     {formatCurrency(cardTotal)}
                   </div>
+                  {available !== null && (
+                    <div className="mt-2 pt-2 border-t border-slate-50 dark:border-slate-800">
+                      <div className="text-[8px] font-bold uppercase text-slate-400 tracking-tighter">Limite Disponível</div>
+                      <div className={`text-xs font-bold ${available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {formatCurrency(Math.max(0, available))}
+                      </div>
+                    </div>
+                  )}
                   <div className="text-[9px] text-slate-400 mt-1 font-medium flex items-center gap-0.5 justify-end">
                     Ver <ChevronRight size={8} />
                   </div>
@@ -568,6 +590,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     <div className="text-3xl font-bold tracking-tight">
                         {formatCurrency((selectedCardDetail !== 'all' && selectedCardDetail) ? (totalsByCard[selectedCardDetail.id] || 0) : totalCreditCard)}
                     </div>
+                    {(selectedCardDetail !== 'all' && selectedCardDetail && selectedCardDetail.limit > 0) && (
+                      <div className="mt-4 pt-4 border-t border-white/20">
+                         <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Limite Disponível Atual</div>
+                         <div className="text-xl font-bold">
+                           {formatCurrency(Math.max(0, selectedCardDetail.limit - (totalsByCard[selectedCardDetail.id] || 0)))}
+                         </div>
+                      </div>
+                    )}
                  </div>
 
                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 px-2">
@@ -767,7 +797,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       {deleteModal.isOpen && (
          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div 
-               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200"
                onClick={() => setDeleteModal({ isOpen: false, item: null })}
             />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
