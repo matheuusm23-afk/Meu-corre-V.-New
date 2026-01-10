@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { GoalSettings } from '../types';
 import { Card } from './ui/Card';
 import { getISODate, formatCurrency } from '../utils';
-import { PieChart, TrendingUp, ChevronLeft, ChevronRight, CheckCircle2, Info, X, Plus } from './Icons';
+import { PieChart, TrendingUp, ChevronLeft, ChevronRight, CheckCircle2, Info, X, Plus, TrendingDown } from './Icons';
 
 interface YearlyGoalsProps {
   goalSettings: GoalSettings;
@@ -15,15 +15,19 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [editingDay, setEditingDay] = useState<{ date: Date; dateStr: string } | null>(null);
   const [tempExtra, setTempExtra] = useState('');
+  const [tempWithdrawal, setTempWithdrawal] = useState('');
 
   const daysInMonth = (month: number) => new Date(currentYear, month + 1, 0).getDate();
   const firstDayOfMonth = (month: number) => new Date(currentYear, month, 1).getDay();
 
   const savingsAdjustments = goalSettings.savingsAdjustments || {};
+  const savingsWithdrawals = goalSettings.savingsWithdrawals || {};
 
   const handleOpenEdit = (date: Date, dateStr: string) => {
     const currentExtra = savingsAdjustments[dateStr] || 0;
+    const currentWithdrawal = savingsWithdrawals[dateStr] || 0;
     setTempExtra(currentExtra > 0 ? currentExtra.toString() : '');
+    setTempWithdrawal(currentWithdrawal > 0 ? currentWithdrawal.toString() : '');
     setEditingDay({ date, dateStr });
   };
 
@@ -31,7 +35,9 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
     if (!editingDay) return;
     const { dateStr } = editingDay;
     const extraVal = parseFloat(tempExtra) || 0;
+    const withdrawalVal = parseFloat(tempWithdrawal) || 0;
     
+    // Atualiza Ajustes (Extras)
     const newAdjustments = { ...savingsAdjustments };
     if (extraVal > 0) {
       newAdjustments[dateStr] = extraVal;
@@ -39,7 +45,19 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
       delete newAdjustments[dateStr];
     }
 
-    onUpdateSettings({ ...goalSettings, savingsAdjustments: newAdjustments });
+    // Atualiza Retiradas
+    const newWithdrawals = { ...savingsWithdrawals };
+    if (withdrawalVal > 0) {
+      newWithdrawals[dateStr] = withdrawalVal;
+    } else {
+      delete newWithdrawals[dateStr];
+    }
+
+    onUpdateSettings({ 
+      ...goalSettings, 
+      savingsAdjustments: newAdjustments,
+      savingsWithdrawals: newWithdrawals
+    });
     setEditingDay(null);
   };
 
@@ -59,26 +77,26 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
 
   const stats = useMemo(() => {
     const baseSaved = goalSettings.savingsDates.length * goalSettings.dailySavingTarget;
-    // Fix: Explicitly cast Object.values to number[] to resolve unknown type errors in reduce
     const totalAdjustments = (Object.values(savingsAdjustments) as number[]).reduce((acc, v) => acc + v, 0);
-    const totalSaved = baseSaved + totalAdjustments;
+    const totalWithdrawals = (Object.values(savingsWithdrawals) as number[]).reduce((acc, v) => acc + v, 0);
     
-    // Calcula dias restantes no ano
+    const totalSaved = baseSaved + totalAdjustments - totalWithdrawals;
+    
     const today = new Date();
     const endOfYear = new Date(currentYear, 11, 31);
     const msPerDay = 1000 * 60 * 60 * 24;
     const remainingDays = Math.max(0, Math.ceil((endOfYear.getTime() - today.getTime()) / msPerDay));
     
-    // Projeção: o que já guardou + (dias restantes * meta diária base)
     const projectedFinal = totalSaved + (remainingDays * goalSettings.dailySavingTarget);
     
     return {
       totalDaysMarked: goalSettings.savingsDates.length,
       totalSaved,
+      totalWithdrawals,
       projectedFinal,
       remainingDays
     };
-  }, [goalSettings.savingsDates, goalSettings.dailySavingTarget, savingsAdjustments, currentYear]);
+  }, [goalSettings.savingsDates, goalSettings.dailySavingTarget, savingsAdjustments, savingsWithdrawals, currentYear]);
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -99,6 +117,7 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
       const dateStr = getISODate(date);
       const isMarked = goalSettings.savingsDates.includes(dateStr);
       const extra = savingsAdjustments[dateStr] || 0;
+      const withdrawal = savingsWithdrawals[dateStr] || 0;
       const isToday = dateStr === getISODate(new Date());
 
       days.push(
@@ -111,7 +130,9 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
               ? 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20 scale-105 z-10' 
               : extra > 0
                 ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400'
-                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}
+                : withdrawal > 0
+                  ? 'bg-rose-100 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                  : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}
             ${isToday ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-slate-950' : ''}
           `}
         >
@@ -120,6 +141,11 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
           {extra > 0 && (
             <div className={`absolute top-1 left-1 text-[7px] font-extrabold ${isMarked ? 'text-white' : 'text-blue-500'}`}>
               +{Math.round(extra)}
+            </div>
+          )}
+          {withdrawal > 0 && !isMarked && (
+            <div className={`absolute top-1 right-1 text-[7px] font-extrabold text-rose-500`}>
+              -{Math.round(withdrawal)}
             </div>
           )}
         </button>
@@ -152,13 +178,15 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card title="Guardado" variant="success" className="p-4 shadow-emerald-500/20">
+        <Card title="Saldo Reserva" variant="success" className="p-4 shadow-emerald-500/20">
           <div className="text-lg font-bold">{formatCurrency(stats.totalSaved)}</div>
-          <div className="text-[9px] opacity-80 font-medium mt-1">{stats.totalDaysMarked} dias meta ok</div>
+          <div className="text-[9px] opacity-80 font-medium mt-1">
+            {stats.totalWithdrawals > 0 && `(-${formatCurrency(stats.totalWithdrawals)} retirados)`}
+          </div>
         </Card>
         <Card title="Previsão Final" variant="primary" className="p-4 shadow-blue-500/20">
           <div className="text-lg font-bold">{formatCurrency(stats.projectedFinal)}</div>
-          <div className="text-[9px] opacity-80 font-medium mt-1">Ao final do ano</div>
+          <div className="text-[9px] opacity-80 font-medium mt-1">Estimativa de saldo</div>
         </Card>
       </div>
 
@@ -195,7 +223,7 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
         <div className="mt-4 p-2.5 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/30 flex items-start gap-2.5">
           <Info size={14} className="text-amber-500 mt-0.5 shrink-0" />
           <p className="text-[9px] text-amber-800 dark:text-amber-300 leading-tight">
-            Toque nos dias para marcar que guardou o valor diário ou para adicionar um valor extra.
+            Toque nos dias para marcar que guardou o valor diário, adicionar um valor extra ou registrar uma retirada.
           </p>
         </div>
       </div>
@@ -204,13 +232,13 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
       {editingDay && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingDay(null)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                   Dia {editingDay.date.getDate()} de {monthNames[editingDay.date.getMonth()]}
                 </h3>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-widest mt-0.5">Reserva de Emergência</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-widest mt-0.5">Gestão da Reserva</p>
               </div>
               <button onClick={() => setEditingDay(null)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full">
                 <X size={20} />
@@ -237,32 +265,53 @@ export const YearlyGoals: React.FC<YearlyGoalsProps> = ({ goalSettings, onUpdate
                 </button>
               </div>
 
-              {/* Extra Value Input */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Plus size={16} className="text-blue-500" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Extra Guardado</span>
+              {/* Grid of Inputs */}
+              <div className="grid grid-cols-1 gap-4">
+                {/* Extra Value Input */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Plus size={16} className="text-blue-500" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Extra Guardado</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
+                    <input 
+                      type="number" 
+                      value={tempExtra}
+                      onChange={(e) => setTempExtra(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full bg-slate-50 dark:bg-slate-950 p-4 pl-10 rounded-2xl font-bold text-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-                  <input 
-                    type="number" 
-                    value={tempExtra}
-                    onChange={(e) => setTempExtra(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full bg-slate-50 dark:bg-slate-950 p-4 pl-10 rounded-2xl font-bold text-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white"
-                  />
+
+                {/* Withdrawal Input */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown size={16} className="text-rose-500" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-rose-500">Retirada da Reserva</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-rose-300">R$</span>
+                    <input 
+                      type="number" 
+                      value={tempWithdrawal}
+                      onChange={(e) => setTempWithdrawal(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full bg-rose-50/50 dark:bg-rose-950/20 p-4 pl-10 rounded-2xl font-bold text-xl border border-rose-100 dark:border-rose-900 focus:outline-none text-rose-600 dark:text-rose-400"
+                    />
+                  </div>
+                  <p className="text-[9px] text-rose-500/70 font-medium px-1">
+                    Use para registrar gastos emergenciais pagos com a reserva.
+                  </p>
                 </div>
-                <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 font-medium px-2">
-                  Qualquer valor a mais que você conseguiu poupar hoje.
-                </p>
               </div>
 
               <button 
                 onClick={handleSaveDay}
                 className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold shadow-xl active:scale-95 transition-all mt-2"
               >
-                Salvar
+                Confirmar Lançamentos
               </button>
             </div>
           </div>

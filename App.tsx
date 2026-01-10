@@ -34,7 +34,8 @@ const App: React.FC = () => {
     startDayOfMonth: 1,
     dailySavingTarget: 0,
     savingsDates: [],
-    savingsAdjustments: {}
+    savingsAdjustments: {},
+    savingsWithdrawals: {}
   });
 
   // Persistence
@@ -55,7 +56,8 @@ const App: React.FC = () => {
         startDayOfMonth: parsed.startDayOfMonth || 1,
         dailySavingTarget: parsed.dailySavingTarget || 0,
         savingsDates: parsed.savingsDates || [],
-        savingsAdjustments: parsed.savingsAdjustments || {}
+        savingsAdjustments: parsed.savingsAdjustments || {},
+        savingsWithdrawals: parsed.savingsWithdrawals || {}
       });
     }
   }, []);
@@ -105,7 +107,7 @@ const App: React.FC = () => {
     setTransactions([]);
     setFixedExpenses([]);
     setCreditCards([]);
-    setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1, dailySavingTarget: 0, savingsDates: [], savingsAdjustments: {} });
+    setGoalSettings({ monthlyGoal: 0, monthlyGoals: {}, daysOff: [], startDayOfMonth: 1, dailySavingTarget: 0, savingsDates: [], savingsAdjustments: {}, savingsWithdrawals: {} });
     localStorage.clear();
   };
 
