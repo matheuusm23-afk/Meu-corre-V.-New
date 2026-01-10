@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { Card } from './ui/Card';
-import { Trash2, Calendar, Edit2, Lock, X, Users, Activity, BarChart3, Smartphone, ChevronRight, CreditCard as CardIcon, Plus, CheckCircle2 } from './Icons';
+import { Trash2, Calendar, Edit2, Lock, X, Users, Activity, BarChart3, Smartphone, ChevronRight, CreditCard as CardIcon, Plus, CheckCircle2, Clock } from './Icons';
 import { GoalSettings, Transaction, CreditCard } from '../types';
-import { getISODate, formatCurrency } from '../utils';
+import { getISODate, formatCurrency, getBillingPeriodRange } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 
 interface SettingsProps {
@@ -69,14 +69,26 @@ export const Settings: React.FC<SettingsProps> = ({
     setShowCardForm(true);
   };
 
+  const handleStartDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdateSettings({ ...goalSettings, startDayOfMonth: parseInt(e.target.value) });
+  };
+
   const handleEndDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     onUpdateSettings({ ...goalSettings, endDayOfMonth: value === 'auto' ? undefined : parseInt(value) });
   };
 
-  const currentStartDay = goalSettings.startDayOfMonth || 1;
-  const isManualMode = goalSettings.endDayOfMonth !== undefined;
-  const displayManualStartDay = isManualMode ? (goalSettings.endDayOfMonth! >= 31 ? 1 : goalSettings.endDayOfMonth! + 1) : null;
+  const { startDate, endDate } = useMemo(() => 
+    getBillingPeriodRange(new Date(), goalSettings.startDayOfMonth, goalSettings.endDayOfMonth),
+    [goalSettings.startDayOfMonth, goalSettings.endDayOfMonth]
+  );
+
+  const cycleDuration = useMemo(() => {
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    // Removido o "+ 1" porque endDate já termina em 23:59:59.999
+    // Math.ceil sobre 30.999 dias já resulta em 31.
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }, [startDate, endDate]);
 
   return (
     <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
@@ -90,6 +102,61 @@ export const Settings: React.FC<SettingsProps> = ({
           <button onClick={onToggleTheme} className={`relative w-11 h-5.5 rounded-full transition-colors ${currentTheme === 'dark' ? 'bg-amber-500' : 'bg-slate-300'}`}>
             <div className={`absolute top-0.5 left-0.5 bg-white w-4.5 h-4.5 rounded-full shadow-md transition-transform ${currentTheme === 'dark' ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
+        </div>
+      </Card>
+
+      <Card title="Ciclo de Trabalho" icon={<Calendar size={16} className="text-amber-500" />} className="p-5">
+        <div className="mt-1 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Início
+              </label>
+              <select 
+                value={goalSettings.startDayOfMonth} 
+                onChange={handleStartDayChange}
+                className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs font-bold"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>Dia {d}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div> Término
+              </label>
+              <select 
+                value={goalSettings.endDayOfMonth === undefined ? 'auto' : goalSettings.endDayOfMonth} 
+                onChange={handleEndDayChange}
+                className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs font-bold"
+              >
+                <option value="auto">Automático</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>Dia {d}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-xl flex items-center justify-center">
+                <Clock size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Duração</p>
+                <p className="text-base font-extrabold text-amber-900 dark:text-amber-300">{cycleDuration} Dias</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] font-bold text-slate-400 uppercase">Período Atual</p>
+              <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
+                {startDate.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})} - {endDate.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}
+              </p>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -176,7 +243,6 @@ export const Settings: React.FC<SettingsProps> = ({
 
                 <div className="flex gap-2">
                   <button type="submit" className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-bold text-[10px] shadow-lg">
-                    {/* Fix: replaced 'editingId' with 'editingCardId' to resolve reference error */}
                     {editingCardId ? 'Salvar' : 'Adicionar'}
                   </button>
                   <button type="button" onClick={resetCardForm} className="px-3 text-slate-400 text-[10px] font-bold">Cancelar</button>
@@ -192,29 +258,6 @@ export const Settings: React.FC<SettingsProps> = ({
               Adicionar Cartão
             </button>
           )}
-        </div>
-      </Card>
-
-      <Card title="Ciclo" icon={<Calendar size={16} className="text-amber-500" />} className="p-5">
-        <div className="mt-1 space-y-3.5">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Fechamento do Ciclo</label>
-            <select 
-              value={goalSettings.endDayOfMonth === undefined ? 'auto' : goalSettings.endDayOfMonth} 
-              onChange={handleEndDayChange}
-              className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none dark:text-white text-xs"
-            >
-              <option value="auto">Automático</option>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                <option key={d} value={d}>Dia {d}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
-             <div className="text-[9px] font-bold text-slate-500 uppercase mb-0.5">Próximo Ciclo em</div>
-             <div className="text-base font-bold text-slate-900 dark:text-white">Dia {displayManualStartDay || goalSettings.startDayOfMonth}</div>
-          </div>
         </div>
       </Card>
 

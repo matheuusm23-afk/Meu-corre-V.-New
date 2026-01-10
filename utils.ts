@@ -49,9 +49,11 @@ export const getStartOfWeek = (date: Date) => {
 };
 
 export const getWeekNumber = (date: Date) => {
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
 export const isSameWeek = (d1: Date, d2: Date) => {
@@ -72,7 +74,7 @@ export const getDaysInMonth = (year: number, month: number) => {
 };
 
 export const getCycleStartDate = (year: number, month: number, startDay: number) => {
-  const maxDays = new Date(year, month + 1, 0).getDate();
+  const maxDays = getDaysInMonth(year, month);
   const day = Math.min(startDay, maxDays);
   const date = new Date(year, month, day);
   date.setHours(0, 0, 0, 0);
@@ -81,68 +83,64 @@ export const getCycleStartDate = (year: number, month: number, startDay: number)
 
 /**
  * Calcula o intervalo do período de faturamento.
- * Ex: Se começa dia 11 de Jan, termina dia 10 de Fev.
+ * Respeita o dia de início e o dia de término (ou automático).
  */
-export const getBillingPeriodRange = (referenceDate: Date, startDay: number, explicitEndDay?: number) => {
+export const getBillingPeriodRange = (referenceDate: Date, startDay: number, endDay?: number) => {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
   
-  // Normalize reference date to start of day for accurate comparison
   const ref = new Date(referenceDate);
   ref.setHours(0, 0, 0, 0);
 
-  if (explicitEndDay === undefined) {
-    const currentMonthStart = getCycleStartDate(year, month, startDay);
-    
-    let startDate: Date;
-    let endDate: Date;
+  // Lógica Automática Corrigida: 
+  // Se endDay for undefined (Automático), o ciclo deve terminar no dia anterior ao início.
+  // Se o início for dia 1, o término é o último dia do mês atual (getDaysInMonth).
+  // Se o início for dia 15, o término é o dia 14.
+  const actualEndDay = endDay !== undefined 
+    ? endDay 
+    : (startDay === 1 ? getDaysInMonth(year, month) : startDay - 1);
 
-    if (ref.getTime() >= currentMonthStart.getTime()) {
-      // Período que começou NESTE mês (ex: 11 Jan)
-      startDate = currentMonthStart;
-      // Termina no dia anterior ao início do próximo ciclo (ex: 10 Fev)
-      const nextMonthStart = getCycleStartDate(year, month + 1, startDay);
-      endDate = new Date(nextMonthStart);
-      endDate.setDate(endDate.getDate() - 1);
-    } else {
-      // Período que começou no mês PASSADO (ex: 11 Dez)
-      startDate = getCycleStartDate(year, month - 1, startDay);
-      // Termina no dia anterior ao ciclo atual (ex: 10 Jan)
-      endDate = new Date(currentMonthStart);
-      endDate.setDate(endDate.getDate() - 1);
-    }
-
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
-
-    return { startDate, endDate };
-  }
-
-  // MODO MANUAL (Fim de Ciclo definido pelo usuário)
-  const closingDay = explicitEndDay;
-  const closingDateThisMonth = getCycleStartDate(year, month, closingDay);
+  // Data de início deste mês de referência (Clampado para o limite do mês, ex: 31/Nov vira 30/Nov)
+  const currentStart = getCycleStartDate(year, month, startDay);
   
+  // Data de término deste mês de referência
+  const currentEnd = getCycleStartDate(year, month, actualEndDay);
+
   let startDate: Date;
   let endDate: Date;
 
-  if (ref.getTime() > closingDateThisMonth.getTime()) {
-    startDate = getCycleStartDate(year, month, closingDay + 1);
-    endDate = getCycleStartDate(year, month + 1, closingDay);
+  // Caso o ciclo atravesse a virada do mês (ex: Início 15, Fim 14)
+  if (actualEndDay < startDay) {
+    if (ref.getTime() >= currentStart.getTime()) {
+      // Estamos na primeira parte do ciclo (do Início do mês atual até o Fim do mês seguinte)
+      startDate = currentStart;
+      endDate = getCycleStartDate(year, month + 1, actualEndDay);
+    } else {
+      // Estamos na segunda parte do ciclo (do Início do mês anterior até o Fim do mês atual)
+      startDate = getCycleStartDate(year, month - 1, startDay);
+      endDate = currentEnd;
+    }
   } else {
-    startDate = getCycleStartDate(year, month - 1, closingDay + 1);
-    endDate = getCycleStartDate(year, month, closingDay);
+    // Ciclo dentro do mesmo mês (ex: Início 01, Fim 30)
+    if (ref.getTime() > currentEnd.getTime()) {
+      // Referência após o fim do ciclo atual
+      startDate = getCycleStartDate(year, month + 1, startDay);
+      endDate = getCycleStartDate(year, month + 1, actualEndDay);
+    } else if (ref.getTime() < currentStart.getTime()) {
+      // Referência antes do início do ciclo atual
+      startDate = getCycleStartDate(year, month - 1, startDay);
+      endDate = getCycleStartDate(year, month - 1, actualEndDay);
+    } else {
+      // Dentro do intervalo
+      startDate = currentStart;
+      endDate = currentEnd;
+    }
   }
 
   startDate.setHours(0, 0, 0, 0);
   endDate.setHours(23, 59, 59, 999);
 
   return { startDate, endDate };
-};
-
-export const isDateInBillingPeriod = (dateToCheck: Date, referenceDate: Date, startDay: number, endDay?: number) => {
-  const { startDate, endDate } = getBillingPeriodRange(referenceDate, startDay, endDay);
-  const check = new Date(dateToCheck);
-  return check.getTime() >= startDate.getTime() && check.getTime() <= endDate.getTime();
 };
 
 export const parseDateLocal = (dateStr: string) => {
@@ -168,6 +166,7 @@ export const getFixedExpensesForPeriod = (
       }
     } else {
       const targetDay = startDate.getDate();
+      // Tenta encontrar o dia no mês de início ou fim do período
       let candidateDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), Math.min(targetDay, getDaysInMonth(periodStart.getFullYear(), periodStart.getMonth())));
       
       if (candidateDate < periodStart) {

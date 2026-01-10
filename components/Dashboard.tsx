@@ -1,5 +1,6 @@
 
 // Fix: Use the correct TransactionType and FixedExpense type for balance calculation.
+import { GoogleGenAI } from "@google/genai";
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { ExpensePieChart } from './ui/PieChart';
@@ -130,6 +131,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return manualIncome + fixedIncome;
   }, [currentPeriodTransactions, fixedExpenses, startDate, endDate]);
 
+  const monthFuelTotal = useMemo(() => {
+    const manualFuel = currentPeriodTransactions
+      .filter(t => t.type === 'expense' && t.description.toLowerCase().includes('combustível'))
+      .reduce((acc, t) => acc + t.amount, 0);
+      
+    const relevantFixed = getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
+    const fixedFuel = relevantFixed
+      .filter(e => e.type === 'expense' && e.category.toLowerCase().includes('combustível'))
+      .reduce((acc, e) => acc + e.amount, 0);
+      
+    return manualFuel + fixedFuel;
+  }, [currentPeriodTransactions, fixedExpenses, startDate, endDate]);
+
   const periodLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
     return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
@@ -222,25 +236,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <Card title="Saldo da Semana" value={formatCurrency(weekBalance)} icon={<TrendingUp size={16}/>} />
       </div>
 
-      <Card title="Saldo da Conta" value={formatCurrency(monthBalance)} variant="primary" valueClassName="text-3xl">
+      <Card title="Saldo da Conta (Livre)" value={formatCurrency(monthBalance)} variant="primary" valueClassName="text-3xl">
         <div className="flex items-center justify-between mt-2">
-           <span className="text-[10px] text-blue-100/60 font-medium">Incluindo fixos e manuais</span>
-           <span className="text-xs font-bold text-white/90 bg-white/20 px-2 py-1 rounded-lg">Bruto: {formatCurrency(monthGrossIncome)}</span>
+           <span className="text-[10px] text-blue-100/60 font-medium tracking-tight">Descontando fixos e gastos</span>
         </div>
       </Card>
 
-      <div className="mt-1 px-2">
-        <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider">Ganhos da Semana</h2>
-        <div className="grid grid-cols-7 gap-2.5 h-32 items-end pb-1 px-1">
+      <div className="grid grid-cols-2 gap-3">
+        <Card title="Combustível (Mês)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={16} className="text-amber-500" />} />
+        <Card title="Total Bruto (Mês)" value={formatCurrency(monthGrossIncome)} icon={<TrendingUp size={16} className="text-emerald-500" />} />
+      </div>
+
+      <div className="mt-2 px-2">
+        <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest">Ganhos Diários</h2>
+        <div className="grid grid-cols-7 gap-2.5 h-44 items-end pb-2 px-1">
             {chartData.map((day) => {
               const height = (day.income / maxChartValue) * 100;
               const isToday = isSameDay(day.date, today);
               return (
-                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-2">
-                  <div className="w-4 sm:w-5 bg-slate-100/80 dark:bg-slate-800/50 rounded-full h-full relative overflow-hidden">
-                    <div style={{ height: `${Math.max(height, 4)}%` }} className={`w-full absolute bottom-0 transition-all duration-700 ${day.income > 0 ? 'bg-emerald-500' : 'bg-transparent'} ${isToday ? 'ring-2 ring-emerald-400' : ''}`} />
+                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-2 relative">
+                  {/* Valor sobre a barra - Robustecido */}
+                  <div className={`absolute -top-6 text-[10px] font-black transition-all duration-500 ${day.income > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${isToday ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {day.income > 0 ? Math.round(day.income) : ''}
                   </div>
-                  <div className={`text-[9px] font-bold uppercase ${isToday ? 'text-emerald-500' : 'text-slate-400'}`}>{day.fullDay}</div>
+                  
+                  {/* Container da barra (Trilho) - Agora mais quadrado */}
+                  <div className={`w-full bg-slate-100 dark:bg-slate-800/40 rounded-t-xl h-full relative overflow-hidden transition-all duration-300 ${isToday ? 'ring-2 ring-emerald-500/20 ring-offset-2 dark:ring-offset-slate-950' : ''}`}>
+                    {/* Barra de progresso - Design Robusto e Quadrado */}
+                    <div 
+                      style={{ height: `${Math.max(height, 0)}%` }} 
+                      className={`w-full absolute bottom-0 transition-all duration-1000 ease-out rounded-t-xl shadow-[0_-4px_12px_rgba(0,0,0,0.1)] ${
+                        isToday 
+                          ? 'bg-gradient-to-t from-emerald-600 to-emerald-400' 
+                          : 'bg-gradient-to-t from-slate-500 to-slate-300 dark:from-slate-600 dark:to-slate-400'
+                      }`} 
+                    />
+                  </div>
+                  
+                  {/* Label do dia */}
+                  <div className={`text-[9px] font-bold uppercase tracking-tight ${isToday ? 'text-emerald-500 scale-110' : 'text-slate-400'}`}>
+                    {day.fullDay}
+                  </div>
                 </div>
               );
             })}
