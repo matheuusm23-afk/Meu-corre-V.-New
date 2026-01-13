@@ -67,6 +67,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, startDate, endDate]);
 
+  // Added groupedTransactions to fix reference error in the template
+  const groupedTransactions = useMemo(() => {
+    const groups: Record<string, Transaction[]> = {};
+    currentPeriodTransactions.forEach(t => {
+      const dateKey = t.date.split('T')[0];
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(t);
+    });
+    return groups;
+  }, [currentPeriodTransactions]);
+
   const relevantFixed = useMemo(() => {
     return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
   }, [fixedExpenses, startDate, endDate]);
@@ -82,7 +95,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       originalTransaction: t
     }));
 
-    // Only include paid fixed expenses (outflow) here for the "Saldo Livre" calculation.
     const fixedItems = relevantFixed
       .filter(e => e.type === 'expense' && e.isPaid)
       .map(e => ({
@@ -143,9 +155,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [currentPeriodTransactions, relevantFixed]);
 
   const monthGrossIncome = useMemo(() => {
-    const manualIncome = currentPeriodTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    // User specifically asked that Fixed Income NOT be included in the gross total card either.
-    return manualIncome;
+    return currentPeriodTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
   }, [currentPeriodTransactions]);
 
   const monthTotalExpenses = useMemo(() => {
@@ -175,10 +185,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const getTransactionIcon = (t: { description: string, type: string, isFixed?: boolean }) => {
     const text = t.description.toLowerCase();
-    if (t.type === 'income') return <Smartphone size={18} />;
-    if (text.includes('gasolina') || text.includes('posto') || text.includes('combustível')) return <Fuel size={18} />;
-    if (t.isFixed) return <Receipt size={18} />;
-    return <TrendingDown size={18} />;
+    if (t.type === 'income') return <Smartphone size={16} />;
+    if (text.includes('gasolina') || text.includes('posto') || text.includes('combustível')) return <Fuel size={16} />;
+    if (t.isFixed) return <Receipt size={16} />;
+    return <TrendingDown size={16} />;
   };
 
   const changePeriod = (offset: number) => {
@@ -236,71 +246,76 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-5 pb-32 pt-2 px-2">
+    <div className="flex flex-col gap-3 pb-32 pt-2 px-1">
       <header className="flex items-center justify-between px-2">
         <Logo />
       </header>
 
-      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-[1.25rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
-        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
-          <ChevronLeft size={20} />
+      {/* Period Selector - Compacted */}
+      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1 rounded-2xl border border-slate-200/50 dark:border-slate-800 shadow-sm">
+        <button onClick={() => changePeriod(-1)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronLeft size={18} />
         </button>
         <div className="text-center">
-          <div className="text-sm font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
-          <div className="text-[10px] text-slate-500 font-medium">{periodLabel}</div>
+          <div className="text-xs font-black capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
+          <div className="text-[9px] text-slate-500 font-bold">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
-          <ChevronRight size={20} />
+        <button onClick={() => changePeriod(1)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronRight size={18} />
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card title="Ganhos do Dia" value={formatCurrency(todayBalance)} valueClassName="text-xl text-emerald-600 dark:text-emerald-400" />
-        <Card title="Ganhos da Semana" value={formatCurrency(weekBalance)} icon={<TrendingUp size={16} className="text-emerald-500"/>} />
+      {/* Top Cards - Compacted */}
+      <div className="grid grid-cols-2 gap-2">
+        <Card title="Ganhos do Dia" value={formatCurrency(todayBalance)} valueClassName="text-base text-emerald-600 dark:text-emerald-400" />
+        <Card title="Ganhos da Semana" value={formatCurrency(weekBalance)} icon={<TrendingUp size={14} className="text-emerald-500"/>} valueClassName="text-base" />
       </div>
 
+      {/* Main Balance Card - Compacted */}
       <Card 
         title="Saldo Livre do Corre" 
         value={formatCurrency(monthBalance)} 
         variant="primary" 
-        valueClassName="text-3xl"
+        valueClassName="text-2xl"
         onClick={() => setShowBalanceDetails(true)}
-        icon={<Info size={16} className="text-white/60" />}
+        icon={<Info size={14} className="text-white/60" />}
       >
-        <div className="flex items-center justify-between mt-2">
-           <span className="text-[10px] text-blue-100/60 font-medium tracking-tight">Focado no trampo diário • Toque para ver extrato</span>
+        <div className="flex items-center justify-between mt-1">
+           <span className="text-[9px] text-blue-100/60 font-bold tracking-tight">Sem ganhos fixos • Ver extrato</span>
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card title="Combustível (Ciclo)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={16} className="text-amber-500" />} />
-        <Card title="Bruto Corre (Ciclo)" value={formatCurrency(monthGrossIncome)} icon={<TrendingUp size={16} className="text-emerald-500" />} subtitle="Apenas ganhos de entregas" />
+      {/* Secondary Row Cards - Compacted */}
+      <div className="grid grid-cols-2 gap-2">
+        <Card title="Combustível (Ciclo)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={14} className="text-amber-500" />} valueClassName="text-base" />
+        <Card title="Bruto Corre (Ciclo)" value={formatCurrency(monthGrossIncome)} icon={<TrendingUp size={14} className="text-emerald-500" />} valueClassName="text-base" />
       </div>
 
-      <div className="mt-2 px-2">
-        <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest">Ganhos Diários (Corre)</h2>
-        <div className="grid grid-cols-7 gap-2.5 h-44 items-end pb-2 px-1">
+      {/* Chart Section - Compacted height */}
+      <div className="mt-1 px-1">
+        <h2 className="text-[9px] font-black text-slate-400 dark:text-slate-500 mb-6 uppercase tracking-[0.2em] text-center">Desempenho Semanal</h2>
+        <div className="grid grid-cols-7 gap-2 h-36 items-end pb-1 px-1">
             {chartData.map((day) => {
               const height = (day.income / maxChartValue) * 100;
               const isToday = isSameDay(day.date, today);
               return (
-                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-2 relative">
-                  <div className={`absolute -top-6 text-[10px] font-black transition-all duration-500 ${day.income > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${isToday ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                <div key={day.dayStr} className="flex flex-col items-center justify-end h-full w-full gap-1.5 relative">
+                  <div className={`absolute -top-5 text-[9px] font-black transition-all duration-500 ${day.income > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${isToday ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>
                     {day.income > 0 ? Math.round(day.income) : ''}
                   </div>
                   
-                  <div className={`w-full bg-slate-100 dark:bg-slate-800/40 rounded-t-xl h-full relative overflow-hidden transition-all duration-300 ${isToday ? 'ring-2 ring-emerald-500/20 ring-offset-2 dark:ring-offset-slate-950' : ''}`}>
+                  <div className={`w-full bg-slate-100 dark:bg-slate-800/40 rounded-t-lg h-full relative overflow-hidden transition-all duration-300 ${isToday ? 'ring-1 ring-emerald-500/20' : ''}`}>
                     <div 
                       style={{ height: `${Math.max(height, 0)}%` }} 
-                      className={`w-full absolute bottom-0 transition-all duration-1000 ease-out rounded-t-xl shadow-[0_-4px_12px_rgba(0,0,0,0.1)] ${
+                      className={`w-full absolute bottom-0 transition-all duration-700 ease-out rounded-t-lg ${
                         isToday 
                           ? 'bg-gradient-to-t from-emerald-600 to-emerald-400' 
-                          : 'bg-gradient-to-t from-slate-500 to-slate-300 dark:from-slate-600 dark:to-slate-400'
+                          : 'bg-gradient-to-t from-slate-400 to-slate-300 dark:from-slate-700 dark:to-slate-600'
                       }`} 
                     />
                   </div>
                   
-                  <div className={`text-[9px] font-bold uppercase tracking-tight ${isToday ? 'text-emerald-500 scale-110' : 'text-slate-400'}`}>
+                  <div className={`text-[8px] font-black uppercase tracking-tighter ${isToday ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {day.fullDay}
                   </div>
                 </div>
@@ -309,14 +324,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
+      {/* Extrato Section - Compacted items */}
+      <div className="space-y-2 mt-2">
+        <h2 className="text-sm font-black text-slate-900 dark:text-slate-100 px-2 flex items-center gap-2">
+          Extrato Diário
+        </h2>
+        {Object.keys(groupedTransactions).length === 0 ? (
+          <div className="text-center py-6 text-slate-400"><p className="text-xs">Sem atividades registradas.</p></div>
+        ) : (
+          Object.keys(groupedTransactions).sort().reverse().map(dateKey => (
+            <div key={dateKey} className="space-y-1.5">
+              <h3 className="text-[8px] font-black text-slate-400 uppercase ml-2 mt-1 tracking-widest">{formatDateFull(dateKey)}</h3>
+              {groupedTransactions[dateKey].map(t => {
+                const isIncome = t.type === 'income';
+                const parts = t.description.split(' - ');
+                const displayDesc = parts[0];
+                const displayCat = parts.length > 1 ? parts[parts.length - 1] : '';
+
+                return (
+                  <div 
+                    key={t.id} 
+                    onClick={() => handleOpenForm(t)}
+                    className={`p-3 rounded-2xl border flex justify-between items-center active:scale-[0.99] transition-all cursor-pointer group ${
+                      isIncome 
+                        ? 'bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100/50 dark:border-emerald-800/30' 
+                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {getTransactionIcon({ description: t.description, type: t.type })}
+                      </div>
+                      <div className="min-w-0">
+                        {displayCat && (
+                          <span className={`text-[7px] font-black uppercase tracking-wider block leading-none mb-1 ${isIncome ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {displayCat}
+                          </span>
+                        )}
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate leading-none">{displayDesc}</p>
+                        <p className="text-[8px] text-slate-500 mt-1 font-bold">{formatDate(t.date)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`font-black text-xs ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-slate-100'}`}>
+                        {t.type === 'expense' ? '- ' : '+ '}{formatCurrency(t.amount)}
+                      </span>
+                      <div className="flex items-center">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
+                          className="p-1 text-slate-300 hover:text-amber-500"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                          className="p-1 text-slate-300 hover:text-rose-500"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* FAB - Compacted */}
       <button 
         onClick={() => handleOpenForm()}
-        className={`fixed bottom-32 right-6 z-40 w-11 h-11 bg-slate-900 dark:bg-white rounded-xl shadow-2xl flex items-center justify-center text-white dark:text-slate-900 transition-all ${isFabVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
+        className={`fixed bottom-28 right-4 z-40 w-10 h-10 bg-slate-900 dark:bg-white rounded-xl shadow-xl flex items-center justify-center text-white dark:text-slate-900 transition-all ${isFabVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
       >
-        <Plus size={22} strokeWidth={2.5} />
+        <Plus size={20} strokeWidth={3} />
       </button>
 
-      {/* BALANCE DETAILS MODAL */}
+      {/* BALANCE DETAILS MODAL - Refined */}
       {showBalanceDetails && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 animate-in fade-in duration-200">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowBalanceDetails(false)} />
@@ -411,28 +495,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
+      {/* ADD/EDIT FORM MODAL - Refined */}
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full max-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800">
+          <div className="relative bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingId ? 'Editar' : 'Novo'} Lançamento</h3>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none">{editingId ? 'Editar' : 'Novo'} Lançamento</h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex">
-                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}><TrendingUp size={16} /> Ganho</button>
-                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}><TrendingDown size={16} /> Despesa</button>
+                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}><TrendingUp size={16} /> Ganho</button>
+                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}><TrendingDown size={16} /> Despesa</button>
               </div>
-              <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="R$ 0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 rounded-xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
-              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
-              <input type="text" required value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição" className="w-full bg-slate-50 dark:bg-slate-950 p-3 rounded-xl focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xl">R$</span>
+                <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-12 rounded-2xl font-black focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+              </div>
+              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+              <input type="text" required value={description} onChange={e => setDescription(e.target.value)} placeholder="O que foi?" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
               <div className="flex flex-wrap gap-2">
                 {(type === 'income' ? DELIVERY_APPS : EXPENSE_CATEGORIES).map(tag => (
-                  <button key={tag} type="button" onClick={() => setCategory(tag)} className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${category === tag ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-transparent'}`}>{tag}</button>
+                  <button key={tag} type="button" onClick={() => setCategory(tag)} className={`text-[10px] font-black px-3 py-2 rounded-xl border transition-all ${category === tag ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md' : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border-transparent'}`}>{tag}</button>
                 ))}
               </div>
-              <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>{editingId ? 'Salvar' : 'Adicionar'}</button>
+              <button type="submit" className={`w-full py-4 rounded-2xl font-black text-sm text-white shadow-xl active:scale-95 transition-all mt-2 ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>{editingId ? 'Salvar Alterações' : 'Confirmar Lançamento'}</button>
             </form>
           </div>
         </div>
