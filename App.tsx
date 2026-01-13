@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Goals } from './components/Goals';
@@ -113,57 +112,67 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-amber-500/30 transition-colors duration-300">
-      <main className="max-w-lg mx-auto min-h-screen px-4">
+      <main className="max-w-lg mx-auto min-h-screen">
         {currentView === 'home' && (
-          <Dashboard 
-            transactions={transactions}
-            fixedExpenses={fixedExpenses}
-            startDayOfMonth={goalSettings.startDayOfMonth}
-            endDayOfMonth={goalSettings.endDayOfMonth}
-            onAddTransaction={handleAddTransaction}
-            onUpdateTransaction={handleUpdateTransaction}
-            onDeleteTransaction={handleDeleteTransaction}
-            onChangeView={setCurrentView}
-          />
+          <div className="w-full">
+            <Dashboard 
+              transactions={transactions}
+              fixedExpenses={fixedExpenses}
+              startDayOfMonth={goalSettings.startDayOfMonth}
+              endDayOfMonth={goalSettings.endDayOfMonth}
+              onAddTransaction={handleAddTransaction}
+              onUpdateTransaction={handleUpdateTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+              onChangeView={setCurrentView}
+            />
+          </div>
         )}
         {currentView === 'goals' && (
-          <Goals 
-            goalSettings={goalSettings}
-            transactions={transactions}
-            onUpdateSettings={setGoalSettings}
-            fixedExpenses={fixedExpenses}
-          />
+          <div className="px-4">
+            <Goals 
+              goalSettings={goalSettings}
+              transactions={transactions}
+              onUpdateSettings={setGoalSettings}
+              fixedExpenses={fixedExpenses}
+            />
+          </div>
         )}
         {currentView === 'yearly-goals' && (
-          <YearlyGoals 
-            goalSettings={goalSettings}
-            onUpdateSettings={setGoalSettings}
-          />
+          <div className="px-4">
+            <YearlyGoals 
+              goalSettings={goalSettings}
+              onUpdateSettings={setGoalSettings}
+            />
+          </div>
         )}
         {currentView === 'fixed-expenses' && (
-          <FixedExpenses 
-            fixedExpenses={fixedExpenses}
-            creditCards={creditCards}
-            startDayOfMonth={goalSettings.startDayOfMonth}
-            endDayOfMonth={goalSettings.endDayOfMonth}
-            onAddExpense={handleAddFixedExpense}
-            onUpdateExpense={handleUpdateFixedExpense}
-            onDeleteExpense={handleDeleteFixedExpense}
-          />
+          <div className="px-4">
+            <FixedExpenses 
+              fixedExpenses={fixedExpenses}
+              creditCards={creditCards}
+              startDayOfMonth={goalSettings.startDayOfMonth}
+              endDayOfMonth={goalSettings.endDayOfMonth}
+              onAddExpense={handleAddFixedExpense}
+              onUpdateExpense={handleUpdateFixedExpense}
+              onDeleteExpense={handleDeleteFixedExpense}
+            />
+          </div>
         )}
         {currentView === 'settings' && (
-          <Settings 
-            onClearData={handleClearData} 
-            goalSettings={goalSettings}
-            onUpdateSettings={setGoalSettings}
-            currentTheme={theme}
-            onToggleTheme={toggleTheme}
-            transactions={transactions}
-            creditCards={creditCards}
-            onAddCard={handleAddCard}
-            onUpdateCard={handleUpdateCard}
-            onDeleteCard={handleDeleteCard}
-          />
+          <div className="px-4">
+            <Settings 
+              onClearData={handleClearData} 
+              goalSettings={goalSettings}
+              onUpdateSettings={setGoalSettings}
+              currentTheme={theme}
+              onToggleTheme={toggleTheme}
+              transactions={transactions}
+              creditCards={creditCards}
+              onAddCard={handleAddCard}
+              onUpdateCard={handleUpdateCard}
+              onDeleteCard={handleDeleteCard}
+            />
+          </div>
         )}
       </main>
       

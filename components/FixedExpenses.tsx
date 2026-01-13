@@ -15,6 +15,8 @@ interface FixedExpensesProps {
   onDeleteExpense: (id: string) => void;
 }
 
+const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];
+
 // --- Swipeable Item Component ---
 interface SwipeableListItemProps {
   children: React.ReactNode;
@@ -197,6 +199,12 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     }
     
     onUpdateExpense({ ...currentItem, paidDates: updatedPaidDates });
+  };
+
+  const handleQuickAmount = (val: number) => {
+    const current = parseFloat(amount) || 0;
+    setAmount((current + val).toString());
+    if (navigator.vibrate) navigator.vibrate(20);
   };
 
   const handleEdit = (item: FixedExpense) => {
@@ -398,7 +406,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       <div className="text-[8px] font-black uppercase text-slate-500 truncate max-w-[60px]">{card.name}</div>
                     </div>
                     {available !== null && (
-                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
+                      <div className="text-sm font-black text-emerald-500 uppercase tracking-tighter">
                          Livre: {formatCurrency(available)}
                       </div>
                     )}
@@ -517,7 +525,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     <div className="flex flex-col">
                        <span className="text-[10px] font-black text-white/60 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Total Comprometido</span>
                        {viewingHistoryCard.limit > 0 && (
-                          <span className="text-[12px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
+                          <span className="text-base font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
                        )}
                     </div>
                     <span className="text-xl font-black text-white dark:text-slate-900">
@@ -571,6 +579,21 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xl">R$</span>
                   <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-12 rounded-2xl font-black focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
                 </div>
+
+                {/* ATALHOS DE VALOR RÁPIDO */}
+                <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                   {QUICK_AMOUNTS.map(val => (
+                     <button 
+                       key={val} 
+                       type="button" 
+                       onClick={() => handleQuickAmount(val)}
+                       className="shrink-0 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black border border-slate-200 dark:border-slate-700 active:bg-blue-500 active:text-white transition-all"
+                     >
+                       +{val}
+                     </button>
+                   ))}
+                </div>
+
                 <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="O que é? (ex: Internet)" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
                 <input type="date" required value={formDate} onChange={e => setFormDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
               </div>
