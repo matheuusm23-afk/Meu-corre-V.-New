@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedExpense, RecurrenceType, CreditCard, TransactionType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod, parseDateLocal } from '../utils';
@@ -156,7 +155,6 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const totalIncomes = useMemo(() => activeItems.filter(i => i.type === 'income').reduce((acc, curr) => acc + curr.amount, 0), [activeItems]);
   const forecastValue = Math.max(0, totalExpenses - totalIncomes);
 
-  // Calcula a fatura do mês atual por cartão
   const invoiceByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     activeItems.forEach(item => {
@@ -167,7 +165,6 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     return totals;
   }, [activeItems]);
 
-  // Calcula o total comprometido (saldo devedor total) de cada cartão
   const committedByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     fixedExpenses.forEach(exp => {
@@ -263,7 +260,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const openForm = () => {
     resetForm();
-    setFormDate(getISODate(new Date()));
+    // CRITICAL: Default the new expense date to the start of the currently viewed period
+    setFormDate(getISODate(startDate));
     setShowForm(true);
   };
 
@@ -400,7 +398,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       <div className="text-[8px] font-black uppercase text-slate-500 truncate max-w-[60px]">{card.name}</div>
                     </div>
                     {available !== null && (
-                      <div className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">
+                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
                          Livre: {formatCurrency(available)}
                       </div>
                     )}
@@ -517,9 +515,9 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                  <div className="bg-slate-900 dark:bg-white p-4 rounded-2xl flex justify-between items-center shadow-xl">
                     <div className="flex flex-col">
-                       <span className="text-[10px] font-black text-white/60 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Total Comprometido</span>
+                       <span className="text-[10px] font-black text-white/60 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Total Comprometido</span>
                        {viewingHistoryCard.limit > 0 && (
-                          <span className="text-[11px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
+                          <span className="text-[12px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
                        )}
                     </div>
                     <span className="text-xl font-black text-white dark:text-slate-900">
@@ -574,6 +572,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-12 rounded-2xl font-black focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
                 </div>
                 <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="O que é? (ex: Internet)" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+                <input type="date" required value={formDate} onChange={e => setFormDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
               </div>
 
               {type === 'expense' && (
