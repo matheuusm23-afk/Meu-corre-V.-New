@@ -82,8 +82,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       originalTransaction: t
     }));
 
+    // Only include paid fixed expenses (outflow) here for the "Saldo Livre" calculation.
     const fixedItems = relevantFixed
-      .filter(e => e.type === 'income' || (e.type === 'expense' && e.isPaid))
+      .filter(e => e.type === 'expense' && e.isPaid)
       .map(e => ({
         id: e.id,
         description: e.title,
@@ -137,16 +138,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const monthBalance = useMemo(() => {
     const manualBalance = currentPeriodTransactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
-    const fixedIncomes = relevantFixed.filter(e => e.type === 'income').reduce((acc, e) => acc + e.amount, 0);
     const paidFixedExpenses = relevantFixed.filter(e => e.type === 'expense' && e.isPaid).reduce((acc, e) => acc + e.amount, 0);
-    return manualBalance + fixedIncomes - paidFixedExpenses;
+    return manualBalance - paidFixedExpenses;
   }, [currentPeriodTransactions, relevantFixed]);
 
   const monthGrossIncome = useMemo(() => {
     const manualIncome = currentPeriodTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const fixedIncome = relevantFixed.filter(e => e.type === 'income').reduce((acc, e) => acc + e.amount, 0);
-    return manualIncome + fixedIncome;
-  }, [currentPeriodTransactions, relevantFixed]);
+    // User specifically asked that Fixed Income NOT be included in the gross total card either.
+    return manualIncome;
+  }, [currentPeriodTransactions]);
 
   const monthTotalExpenses = useMemo(() => {
     const manualExpenses = currentPeriodTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
@@ -255,12 +255,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card title="Saldo do Dia" value={formatCurrency(todayBalance)} />
-        <Card title="Saldo da Semana" value={formatCurrency(weekBalance)} icon={<TrendingUp size={16}/>} />
+        <Card title="Ganhos do Dia" value={formatCurrency(todayBalance)} valueClassName="text-xl text-emerald-600 dark:text-emerald-400" />
+        <Card title="Ganhos da Semana" value={formatCurrency(weekBalance)} icon={<TrendingUp size={16} className="text-emerald-500"/>} />
       </div>
 
       <Card 
-        title="Saldo da Conta (Livre)" 
+        title="Saldo Livre do Corre" 
         value={formatCurrency(monthBalance)} 
         variant="primary" 
         valueClassName="text-3xl"
@@ -268,17 +268,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
         icon={<Info size={16} className="text-white/60" />}
       >
         <div className="flex items-center justify-between mt-2">
-           <span className="text-[10px] text-blue-100/60 font-medium tracking-tight">Toque para ver o extrato do ciclo</span>
+           <span className="text-[10px] text-blue-100/60 font-medium tracking-tight">Focado no trampo diário • Toque para ver extrato</span>
         </div>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
         <Card title="Combustível (Ciclo)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={16} className="text-amber-500" />} />
-        <Card title="Total Bruto (Ciclo)" value={formatCurrency(monthGrossIncome)} icon={<TrendingUp size={16} className="text-emerald-500" />} />
+        <Card title="Bruto Corre (Ciclo)" value={formatCurrency(monthGrossIncome)} icon={<TrendingUp size={16} className="text-emerald-500" />} subtitle="Apenas ganhos de entregas" />
       </div>
 
       <div className="mt-2 px-2">
-        <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest">Ganhos Diários</h2>
+        <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest">Ganhos Diários (Corre)</h2>
         <div className="grid grid-cols-7 gap-2.5 h-44 items-end pb-2 px-1">
             {chartData.map((day) => {
               const height = (day.income / maxChartValue) * 100;
@@ -324,7 +324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex justify-between items-center mb-6 shrink-0">
                 <div>
                    <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">Extrato do Ciclo</h3>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Lançamentos deste período</p>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Lançamentos de Corre e Fixas</p>
                 </div>
                 <button onClick={() => setShowBalanceDetails(false)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 active:scale-90 transition-transform">
                   <X size={20} />
@@ -333,7 +333,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               <div className="grid grid-cols-2 gap-3 mb-6 shrink-0">
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
-                  <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest block mb-1">Total Recebido</span>
+                  <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest block mb-1">Ganhos de Corre</span>
                   <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(monthGrossIncome)}</span>
                 </div>
                 <div className="p-4 bg-rose-50 dark:bg-rose-950/20 rounded-2xl border border-rose-100 dark:border-rose-800/50">
@@ -399,8 +399,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-auto shrink-0">
                  <div className="bg-slate-900 dark:bg-white p-5 rounded-3xl flex justify-between items-center shadow-2xl">
                     <div>
-                      <span className="text-[10px] font-black text-white/50 dark:text-slate-400 uppercase tracking-widest">Saldo Livre Hoje</span>
-                      <p className="text-[8px] text-white/30 dark:text-slate-300 font-bold uppercase mt-0.5">Disponível para uso</p>
+                      <span className="text-[10px] font-black text-white/50 dark:text-slate-400 uppercase tracking-widest">Saldo Livre do Corre</span>
+                      <p className="text-[8px] text-white/30 dark:text-slate-300 font-bold uppercase mt-0.5">Dinheiro do bolso (Sem fixas)</p>
                     </div>
                     <span className="text-2xl font-black text-white dark:text-slate-900">
                        {formatCurrency(monthBalance)}
