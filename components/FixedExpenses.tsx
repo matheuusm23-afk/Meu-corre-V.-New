@@ -406,7 +406,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       <div className="text-[8px] font-black uppercase text-slate-500 truncate max-w-[60px]">{card.name}</div>
                     </div>
                     {available !== null && (
-                      <div className="text-sm font-black text-emerald-500 uppercase tracking-tighter">
+                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
                          Livre: {formatCurrency(available)}
                       </div>
                     )}
