@@ -158,26 +158,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return manualFuel + fixedFuel;
   }, [currentPeriodTransactions, relevantFixed]);
 
-  // Histórico Mensal
+  // Histórico Mensal baseado nos ciclos configurados pelo usuário
   const monthlyGrossTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
+    const totals: Record<string, { amount: number, label: string }> = {};
+    
     transactions.forEach(t => {
       if (t.type === 'income') {
-        const date = parseDateLocal(t.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        totals[monthKey] = (totals[monthKey] || 0) + t.amount;
+        const tDate = parseDateLocal(t.date);
+        // Obtém o intervalo do ciclo ao qual essa transação pertence
+        const { startDate: cycleStart, endDate: cycleEnd } = getBillingPeriodRange(tDate, startDayOfMonth, endDayOfMonth);
+        const cycleKey = cycleStart.toISOString().split('T')[0];
+        
+        if (!totals[cycleKey]) {
+          // Usa o ponto médio do ciclo para determinar o rótulo do mês
+          const midPoint = new Date((cycleStart.getTime() + cycleEnd.getTime()) / 2);
+          const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
+          totals[cycleKey] = { amount: 0, label: monthName };
+        }
+        totals[cycleKey].amount += t.amount;
       }
     });
     
     return Object.entries(totals)
-      .sort((a, b) => b[0].localeCompare(a[0])) // Descendente
-      .map(([key, value]) => {
-        const [year, month] = key.split('-').map(Number);
-        const date = new Date(year, month - 1, 1);
-        const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date);
-        return { monthName, value, key };
-      });
-  }, [transactions]);
+      .sort((a, b) => b[0].localeCompare(a[0])) // Ordena por data de início do ciclo (mais recente primeiro)
+      .map(([key, data]) => ({
+        monthName: data.label,
+        value: data.amount,
+        key: key
+      }));
+  }, [transactions, startDayOfMonth, endDayOfMonth]);
 
   const getTransactionIcon = (t: { description: string, type: string, isFixed?: boolean }) => {
     const text = t.description.toLowerCase();
@@ -334,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* HISTÓRICO MENSAL LIST */}
         <div className="space-y-2 mt-6">
-          <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] px-2">Faturamento por Mês</h2>
+          <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] px-2">Faturamento por Ciclo</h2>
           <div className="space-y-1.5 pb-4">
             {monthlyGrossTotals.length > 0 ? (
               monthlyGrossTotals.map(item => (
