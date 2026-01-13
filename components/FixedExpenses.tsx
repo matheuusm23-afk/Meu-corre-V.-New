@@ -16,8 +16,6 @@ interface FixedExpensesProps {
   onDeleteExpense: (id: string) => void;
 }
 
-const EXPENSE_CATEGORIES = ['Aluguel', 'Financiamento', 'Internet', 'Alimentação', 'Luz', 'Água', 'Salário', 'Bônus', 'Cartão'];
-
 // --- Swipeable Item Component ---
 interface SwipeableListItemProps {
   children: React.ReactNode;
@@ -158,6 +156,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const totalIncomes = useMemo(() => activeItems.filter(i => i.type === 'income').reduce((acc, curr) => acc + curr.amount, 0), [activeItems]);
   const forecastValue = Math.max(0, totalExpenses - totalIncomes);
 
+  // Calcula a fatura do mês atual por cartão
   const invoiceByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     activeItems.forEach(item => {
@@ -168,31 +167,20 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     return totals;
   }, [activeItems]);
 
+  // Calcula o total comprometido (saldo devedor total) de cada cartão
   const committedByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     fixedExpenses.forEach(exp => {
       if (exp.cardId && exp.type === 'expense') {
-        const expenseStart = parseDateLocal(exp.startDate);
-        if (expenseStart > endDate) return;
-
-        let utilizedValue = 0;
         if (exp.recurrence === 'installments' && exp.installments) {
-          const expenseEnd = new Date(expenseStart);
-          expenseEnd.setMonth(expenseStart.getMonth() + exp.installments - 1);
-          if (expenseEnd < startDate) return;
-          utilizedValue = exp.amount * exp.installments;
-        } else if (exp.recurrence === 'single') {
-          if (expenseStart >= startDate && expenseStart <= endDate) {
-            utilizedValue = exp.amount;
-          }
+          totals[exp.cardId] = (totals[exp.cardId] || 0) + (exp.amount * exp.installments);
         } else {
-          utilizedValue = exp.amount;
+          totals[exp.cardId] = (totals[exp.cardId] || 0) + exp.amount;
         }
-        totals[exp.cardId] = (totals[exp.cardId] || 0) + utilizedValue;
       }
     });
     return totals;
-  }, [fixedExpenses, startDate, endDate]);
+  }, [fixedExpenses]);
 
   const creditCardExpenses = useMemo(() => activeItems.filter(i => !!i.cardId), [activeItems]);
   const otherItems = useMemo(() => activeItems.filter(i => !i.cardId), [activeItems]);
@@ -275,8 +263,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const openForm = () => {
     resetForm();
-    const todayStr = getISODate(new Date());
-    setFormDate(todayStr);
+    setFormDate(getISODate(new Date()));
     setShowForm(true);
   };
 
@@ -371,14 +358,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       </div>
 
       <div className="px-1">
-        <div className="bg-blue-600 dark:bg-blue-700 p-2 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
+        <div className="bg-blue-600 dark:bg-blue-700 p-2.5 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
           <div className="flex items-center gap-2">
-            <div className="bg-white/20 p-1.5 rounded-lg text-white">
+            <div className="bg-white/20 p-1 rounded-lg text-white">
               <Info size={12} />
             </div>
             <span className="text-[9px] font-black text-white uppercase tracking-widest">Déficit do Mês</span>
           </div>
-          <div className="text-sm font-black text-white tracking-tight mr-2">
+          <div className="text-sm font-black text-white tracking-tight mr-1">
             {formatCurrency(forecastValue)}
           </div>
         </div>
@@ -398,18 +385,28 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
           <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 px-1`}>
             {creditCards.map(card => {
               const monthInvoice = invoiceByCard[card.id] || 0;
+              const committedTotal = committedByCard[card.id] || 0;
+              const available = card.limit > 0 ? Math.max(0, card.limit - committedTotal) : null;
+              
               return (
                 <div 
                   key={card.id}
                   onClick={() => setViewingHistoryCard(card)}
                   className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-3 rounded-2xl active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
-                    <div className="text-[8px] font-black uppercase text-slate-500 truncate">{card.name}</div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
+                      <div className="text-[8px] font-black uppercase text-slate-500 truncate max-w-[60px]">{card.name}</div>
+                    </div>
+                    {available !== null && (
+                      <div className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">
+                         Livre: {formatCurrency(available)}
+                      </div>
+                    )}
                   </div>
                   <div className="text-base font-black text-slate-900 dark:text-slate-100 leading-none">{formatCurrency(monthInvoice)}</div>
-                  <div className="text-[7px] text-slate-400 font-black uppercase mt-1 tracking-tight">Fatura Atual</div>
+                  <div className="text-[7px] text-slate-400 font-black uppercase mt-1 tracking-tight">Fatura do Mês</div>
                 </div>
               );
             })}
@@ -519,12 +516,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                  <div className="bg-slate-900 dark:bg-white p-4 rounded-2xl flex justify-between items-center shadow-xl">
-                    <span className="text-[10px] font-black text-white/60 dark:text-slate-500 uppercase tracking-widest">Valor Comprometido</span>
-                    <span className="text-xl font-black text-white dark:text-slate-900">
-                       {formatCurrency(fixedExpenses
-                         .filter(e => e.cardId === viewingHistoryCard.id)
-                         .reduce((acc, curr) => acc + (curr.recurrence === 'installments' ? (curr.amount * (curr.installments || 1)) : curr.amount), 0)
+                    <div className="flex flex-col">
+                       <span className="text-[10px] font-black text-white/60 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Total Comprometido</span>
+                       {viewingHistoryCard.limit > 0 && (
+                          <span className="text-[9px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
                        )}
+                    </div>
+                    <span className="text-xl font-black text-white dark:text-slate-900">
+                       {formatCurrency(committedByCard[viewingHistoryCard.id] || 0)}
                     </span>
                  </div>
               </div>
