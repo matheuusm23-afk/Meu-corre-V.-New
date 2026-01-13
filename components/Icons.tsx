@@ -10,6 +10,9 @@ import {
   Calendar, 
   ChevronLeft, 
   ChevronRight,
+  // Added ChevronDown and ChevronUp to fix missing export errors in FixedExpenses.tsx
+  ChevronDown,
+  ChevronUp,
   Plus, 
   Trash2, 
   Edit2, 
@@ -44,6 +47,9 @@ export {
   Calendar, 
   ChevronLeft, 
   ChevronRight, 
+  // Added ChevronDown and ChevronUp to fix missing export errors in FixedExpenses.tsx
+  ChevronDown,
+  ChevronUp,
   Plus, 
   Trash2, 
   Edit2, 

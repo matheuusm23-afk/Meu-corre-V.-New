@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedExpense, RecurrenceType, CreditCard, TransactionType } from '../types';
 import { formatCurrency, getBillingPeriodRange, getISODate, getFixedExpensesForPeriod, parseDateLocal } from '../utils';
 import { Card } from './ui/Card';
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2, AlertCircle, Info, ShoppingBag } from './Icons';
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Receipt, ScrollText, Calendar, Repeat, Clock, TrendingUp, TrendingDown, Wallet, Edit2, CreditCard as CardIcon, CheckCircle2, AlertCircle, Info, ShoppingBag, ChevronDown, ChevronUp } from './Icons';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FixedExpensesProps {
@@ -106,6 +106,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [isFabVisible, setIsFabVisible] = useState(true);
   const [viewingHistoryCard, setViewingHistoryCard] = useState<CreditCard | null>(null);
+  const [isCardsExpanded, setIsCardsExpanded] = useState(false);
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; item: (FixedExpense & { occurrenceDate: string }) | null }>({ isOpen: false, item: null });
 
@@ -133,14 +134,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     getBillingPeriodRange(viewDate, startDayOfMonth, endDayOfMonth), 
   [viewDate, startDayOfMonth, endDayOfMonth]);
 
-  const periodLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
-    return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
-  }, [startDate, endDate]);
-
   const mainMonthLabel = useMemo(() => {
     const midPoint = new Date((startDate.getTime() + endDate.getTime()) / 2);
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
+  }, [startDate, endDate]);
+
+  const periodLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+    return `${fmt.format(startDate)} - ${fmt.format(endDate)}`;
   }, [startDate, endDate]);
 
   const changePeriod = (offset: number) => {
@@ -153,13 +154,10 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     return getFixedExpensesForPeriod(fixedExpenses, startDate, endDate);
   }, [fixedExpenses, startDate, endDate]);
 
-  const totalExpenses = activeItems.filter(i => i.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
-  const totalIncomes = activeItems.filter(i => i.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
-  
-  // Forecast: Total Expenses - Total Ganhos Fixos
+  const totalExpenses = useMemo(() => activeItems.filter(i => i.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0), [activeItems]);
+  const totalIncomes = useMemo(() => activeItems.filter(i => i.type === 'income').reduce((acc, curr) => acc + curr.amount, 0), [activeItems]);
   const forecastValue = Math.max(0, totalExpenses - totalIncomes);
 
-  // Fatura do Mês: Apenas o que cai neste período (uma parcela, ou gasto único/mensal)
   const invoiceByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     activeItems.forEach(item => {
@@ -170,7 +168,6 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
     return totals;
   }, [activeItems]);
 
-  // Limite Ocupado: Valor total comprometido (valor total da compra parcelada)
   const committedByCard = useMemo(() => {
     const totals: Record<string, number> = {};
     fixedExpenses.forEach(exp => {
@@ -199,6 +196,44 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const creditCardExpenses = useMemo(() => activeItems.filter(i => !!i.cardId), [activeItems]);
   const otherItems = useMemo(() => activeItems.filter(i => !i.cardId), [activeItems]);
+  const totalCardExpenses = useMemo(() => creditCardExpenses.reduce((acc, curr) => acc + curr.amount, 0), [creditCardExpenses]);
+
+  const handleTogglePaid = (item: FixedExpense & { occurrenceDate: string, isPaid: boolean }) => {
+    const currentItem = fixedExpenses.find(f => f.id === item.id);
+    if (!currentItem) return;
+
+    const currentPaidDates = currentItem.paidDates || [];
+    let updatedPaidDates;
+
+    if (item.isPaid) {
+        updatedPaidDates = currentPaidDates.filter(d => d !== item.occurrenceDate);
+    } else {
+        updatedPaidDates = [...currentPaidDates, item.occurrenceDate];
+    }
+    
+    onUpdateExpense({ ...currentItem, paidDates: updatedPaidDates });
+  };
+
+  const handleEdit = (item: FixedExpense) => {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setCategory(item.category);
+    setAmount(item.amount.toString());
+    setType(item.type || 'expense');
+    setRecurrence(item.recurrence);
+    setInstallments(item.installments ? item.installments.toString() : '12');
+    setFormDate(item.startDate);
+    setIsCardExpense(!!item.cardId);
+    setSelectedCardId(item.cardId);
+    setShowForm(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteModal.item) {
+      onDeleteExpense(deleteModal.item.id);
+      setDeleteModal({ isOpen: false, item: null });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,11 +253,8 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
       cardId: isCardExpense ? selectedCardId : undefined
     };
 
-    if (editingId) {
-      onUpdateExpense(expenseData);
-    } else {
-      onAddExpense(expenseData);
-    }
+    if (editingId) onUpdateExpense(expenseData);
+    else onAddExpense(expenseData);
 
     setShowForm(false);
     resetForm();
@@ -243,54 +275,13 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
   const openForm = () => {
     resetForm();
-    const today = new Date();
-    if (today >= startDate && today <= endDate) {
-        setFormDate(getISODate(today));
-    } else {
-        setFormDate(getISODate(startDate));
-    }
+    const todayStr = getISODate(new Date());
+    setFormDate(todayStr);
     setShowForm(true);
-  };
-
-  const handleEdit = (item: FixedExpense) => {
-    setEditingId(item.id);
-    setTitle(item.title);
-    setCategory(item.category);
-    setAmount(item.amount.toString());
-    setType(item.type || 'expense');
-    setRecurrence(item.recurrence);
-    setInstallments(item.installments ? item.installments.toString() : '12');
-    setFormDate(item.startDate);
-    setIsCardExpense(!!item.cardId);
-    setSelectedCardId(item.cardId);
-    setShowForm(true);
-  };
-
-  const handleTogglePaid = (item: FixedExpense & { occurrenceDate: string, isPaid: boolean }) => {
-    const currentItem = fixedExpenses.find(f => f.id === item.id);
-    if (!currentItem) return;
-
-    const currentPaidDates = currentItem.paidDates || [];
-    let updatedPaidDates;
-
-    if (item.isPaid) {
-        updatedPaidDates = currentPaidDates.filter(d => d !== item.occurrenceDate);
-    } else {
-        updatedPaidDates = [...currentPaidDates, item.occurrenceDate];
-    }
-    
-    onUpdateExpense({ ...currentItem, paidDates: updatedPaidDates });
-  };
-
-  const confirmDelete = () => {
-    if (deleteModal.item) {
-      onDeleteExpense(deleteModal.item.id);
-      setDeleteModal({ isOpen: false, item: null });
-    }
   };
 
   const renderList = (items: typeof activeItems) => (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
        {items.map(item => {
          const card = creditCards.find(c => c.id === item.cardId);
          const isCreditCard = !!item.cardId;
@@ -303,64 +294,54 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
             type={item.type}
             onTogglePaid={() => handleTogglePaid(item)}
             onClick={() => handleEdit(item)}
-            className={`flex items-center justify-between p-3 rounded-2xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-white dark:bg-slate-900 ${
+            className={`flex items-center justify-between p-3 rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.99] bg-white dark:bg-slate-900 ${
                item.isPaid 
-                 ? 'border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10' 
+                 ? 'border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10 opacity-70' 
                  : isIncome
-                    ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/20'
+                    ? 'border-emerald-100 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10'
                     : isCreditCard 
-                      ? 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' 
+                      ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-100 dark:border-purple-800/50' 
                       : 'border-slate-100 dark:border-slate-800'
             }`} 
          >
-            <div className={`flex items-center gap-3 flex-1 min-w-0 ${item.isPaid ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-               <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center relative ${
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+               <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center relative ${
                  isIncome
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
                     : isCreditCard
                       ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
                       : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
                }`}>
-                  {isIncome ? <TrendingUp size={16} /> : isCreditCard ? <CardIcon size={16} /> : <Receipt size={16} />}
+                  {isIncome ? <TrendingUp size={14} /> : isCreditCard ? <CardIcon size={14} /> : <Receipt size={14} />}
                   {item.isPaid && (
-                      <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
-                          <CheckCircle2 size={8} strokeWidth={3} />
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white dark:border-slate-900">
+                          <CheckCircle2 size={6} strokeWidth={4} />
                       </div>
                   )}
                </div>
                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <p className={`text-[8px] font-extrabold uppercase tracking-wider leading-none truncate ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-600' : 'text-rose-500'}`}>
-                      {isIncome ? 'Ganho Fixo' : isCreditCard ? 'Cartão' : 'Gasto Fixo'}
+                    <p className={`text-[7px] font-black uppercase tracking-widest leading-none ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-600' : 'text-rose-500'}`}>
+                      {isIncome ? 'Ganho' : isCreditCard ? 'No Cartão' : 'Gasto Fixo'}
                     </p>
                     {card && (
-                      <span className="text-[7px] px-1 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800" style={{ color: card.color }}>
+                      <span className="text-[6px] px-1 py-0.5 rounded-full font-black border border-purple-100 dark:border-purple-800 bg-white/50 dark:bg-slate-800/50" style={{ color: card.color }}>
                          {card.name}
                       </span>
                     )}
                   </div>
-                  <p className={`font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight ${item.isPaid ? 'line-through decoration-emerald-500/50' : ''}`}>
+                  <p className={`font-black text-xs text-slate-900 dark:text-slate-100 truncate leading-none ${item.isPaid ? 'line-through opacity-50' : ''}`}>
                       {item.title}
                   </p>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                    {item.recurrence === 'installments' && item.currentInstallment && (
-                      <span className="text-[8px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1 py-0.5 rounded-md whitespace-nowrap">
-                        {item.currentInstallment}/{item.installments}
-                      </span>
-                    )}
-                    {item.recurrence === 'monthly' && (
-                       <span className="text-[8px] text-slate-400 font-medium uppercase whitespace-nowrap">Mensal</span>
-                    )}
-                  </div>
                </div>
             </div>
-            <div className={`flex flex-col items-end pl-2 shrink-0 ${item.isPaid ? 'opacity-60' : ''}`}>
-               <span className={`font-bold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : isCreditCard ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                 {isIncome ? '+ ' : '- '}{formatCurrency(item.amount)}
+            <div className="flex items-center gap-2 pl-2 shrink-0">
+               <span className={`font-black text-xs ${isIncome ? 'text-emerald-600' : 'text-slate-900 dark:text-slate-100'}`}>
+                 {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
                </span>
-               <div className="flex items-center -mr-1 mt-0.5">
-                 <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1 text-slate-300 hover:text-amber-500"><Edit2 size={12} /></button>
-                 <button onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, item }); }} className="p-1 text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
+               <div className="flex items-center">
+                 <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1 text-slate-300 hover:text-amber-500 transition-colors"><Edit2 size={12} /></button>
+                 <button onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, item }); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={12} /></button>
                </div>
             </div>
          </SwipeableListItem>
@@ -369,83 +350,66 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
   );
 
   return (
-    <div className="flex flex-col gap-5 pb-32 pt-4 px-2">
+    <div className="flex flex-col gap-4 pb-32 pt-4 px-1">
       <header className="px-2">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Fixas 🧾</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-xs">Organize seus compromissos recorrentes.</p>
+        <h1 className="text-xl font-black text-slate-900 dark:text-slate-100">Fixas 🧾</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider">Lançamentos Recorrentes</p>
       </header>
 
-      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-[1.25rem] border border-slate-200/50 dark:border-slate-800 shadow-sm">
-        <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
-          <ChevronLeft size={20} />
+      {/* Selector - Compacted */}
+      <div className="flex items-center justify-between bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-1 rounded-2xl border border-slate-200/50 dark:border-slate-800 shadow-sm mx-1">
+        <button onClick={() => changePeriod(-1)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronLeft size={18} />
         </button>
         <div className="text-center">
-          <div className="text-sm font-bold capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
-          <div className="text-[10px] text-slate-500 font-medium">{periodLabel}</div>
+          <div className="text-xs font-black capitalize text-slate-900 dark:text-slate-100">{mainMonthLabel}</div>
+          <div className="text-[9px] text-slate-500 font-bold">{periodLabel}</div>
         </div>
-        <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
-          <ChevronRight size={20} />
+        <button onClick={() => changePeriod(1)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white active:bg-slate-100 dark:active:bg-slate-800 rounded-xl transition-colors">
+          <ChevronRight size={18} />
         </button>
       </div>
 
-      <div className="px-2">
-        <div className="bg-blue-600 dark:bg-blue-700 p-3 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
+      <div className="px-1">
+        <div className="bg-blue-600 dark:bg-blue-700 p-2 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 border border-blue-400/30">
           <div className="flex items-center gap-2">
-            <div className="bg-white/20 p-1 rounded-lg text-white">
-              <Info size={14} />
+            <div className="bg-white/20 p-1.5 rounded-lg text-white">
+              <Info size={12} />
             </div>
-            <span className="text-[10px] font-bold text-white/90 uppercase tracking-tight">Previsão Real</span>
+            <span className="text-[9px] font-black text-white uppercase tracking-widest">Déficit do Mês</span>
           </div>
-          <div className="text-base font-extrabold text-white tracking-tight">
+          <div className="text-sm font-black text-white tracking-tight mr-2">
             {formatCurrency(forecastValue)}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Card title="Ganhos Fixos" variant="success" className="p-4">
-             <div className="text-lg font-bold tracking-tight">{formatCurrency(totalIncomes)}</div>
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2 px-1">
+          <Card title="Ganhos Fixos" variant="success" className="p-2.5" valueClassName="text-sm">
+             <div className="text-sm font-black tracking-tight">{formatCurrency(totalIncomes)}</div>
           </Card>
-          <Card title="Gastos Fixos" variant="danger" className="p-4">
-             <div className="text-lg font-bold tracking-tight">{formatCurrency(totalExpenses)}</div>
+          <Card title="Gastos Fixos" variant="danger" className="p-2.5" valueClassName="text-sm">
+             <div className="text-sm font-black tracking-tight">{formatCurrency(totalExpenses)}</div>
           </Card>
         </div>
 
         {creditCards.length > 0 && (
-          <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+          <div className={`grid ${creditCards.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 px-1`}>
             {creditCards.map(card => {
               const monthInvoice = invoiceByCard[card.id] || 0;
-              const committedTotal = committedByCard[card.id] || 0;
-              const available = card.limit > 0 ? card.limit - committedTotal : null;
-              
               return (
                 <div 
                   key={card.id}
                   onClick={() => setViewingHistoryCard(card)}
-                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-4 rounded-[2rem] active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
+                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm p-3 rounded-2xl active:scale-[0.98] transition-all cursor-pointer hover:shadow-md"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: card.color }}></div>
-                    <div className="text-[10px] font-bold uppercase text-slate-500 truncate">{card.name}</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
+                    <div className="text-[8px] font-black uppercase text-slate-500 truncate">{card.name}</div>
                   </div>
-                  <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{formatCurrency(monthInvoice)}</div>
-                  <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">Fatura do Mês</div>
-                  
-                  <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800/50 space-y-1">
-                    <div className="flex justify-between items-center text-[8px] font-bold uppercase text-slate-400">
-                      <span>Total Ocupado</span>
-                      <span className="text-slate-600 dark:text-slate-300">{formatCurrency(committedTotal)}</span>
-                    </div>
-                    {available !== null && (
-                      <div className="flex justify-between items-center text-[8px] font-bold uppercase text-slate-400">
-                        <span>Livre</span>
-                        <span className={available >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
-                          {formatCurrency(Math.abs(available))}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <div className="text-base font-black text-slate-900 dark:text-slate-100 leading-none">{formatCurrency(monthInvoice)}</div>
+                  <div className="text-[7px] text-slate-400 font-black uppercase mt-1 tracking-tight">Fatura Atual</div>
                 </div>
               );
             })}
@@ -453,49 +417,74 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2 mt-1 px-1">
          <div className="flex justify-between items-center px-2">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] flex items-center gap-1.5">
               <ScrollText size={12} /> Itens do Mês
             </h3>
          </div>
          {activeItems.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
+               {/* Lançamentos que NÃO são cartão */}
                {otherItems.length > 0 && renderList(otherItems)}
+               
+               {/* AGRUPAMENTO DE CARTÕES */}
                {creditCardExpenses.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    <div className="text-[9px] font-bold text-slate-400 uppercase ml-2 flex items-center gap-1">
-                       <CardIcon size={10} /> No Cartão
+                 <div className="space-y-2 mt-1">
+                    <div 
+                      onClick={() => setIsCardsExpanded(!isCardsExpanded)}
+                      className={`p-3 bg-purple-500/10 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/50 rounded-2xl flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all ${isCardsExpanded ? 'ring-2 ring-purple-500/20 shadow-lg' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/20">
+                           <CardIcon size={20} />
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 leading-none mb-1">Resumo de Cartões</p>
+                          <p className="font-black text-sm text-slate-900 dark:text-white leading-none">
+                            {creditCardExpenses.length} lançamentos
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-sm text-purple-700 dark:text-purple-400">{formatCurrency(totalCardExpenses)}</span>
+                        {isCardsExpanded ? <ChevronUp size={16} className="text-purple-400" /> : <ChevronDown size={16} className="text-purple-400" />}
+                      </div>
                     </div>
-                    {renderList(creditCardExpenses)}
-                  </div>
+
+                    {isCardsExpanded && (
+                      <div className="pl-2 space-y-1.5 animate-in slide-in-from-top-2 duration-300">
+                         {renderList(creditCardExpenses)}
+                      </div>
+                    )}
+                 </div>
                )}
             </div>
          ) : (
-            <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-[1.5rem] border border-dashed border-slate-200 dark:border-slate-800">
-               <Receipt size={32} className="mx-auto mb-2 opacity-20" />
-               <p className="text-xs font-medium">Nada previsto.</p>
+            <div className="text-center py-8 text-slate-400 bg-white/30 dark:bg-slate-900/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+               <Receipt size={24} className="mx-auto mb-2 opacity-20" />
+               <p className="text-[10px] font-black uppercase tracking-widest">Sem previsões registradas</p>
             </div>
          )}
       </div>
 
-      <button onClick={openForm} className="fixed bottom-32 right-6 z-50 w-11 h-11 bg-slate-900 dark:bg-white rounded-xl shadow-2xl flex items-center justify-center text-white dark:text-slate-950 transition-all">
-        <Plus size={22} strokeWidth={2.5} />
+      <button onClick={openForm} className="fixed bottom-28 right-4 z-50 w-10 h-10 bg-slate-900 dark:bg-white rounded-xl shadow-xl flex items-center justify-center text-white dark:text-slate-950 transition-all hover:scale-105 active:scale-95">
+        <Plus size={20} strokeWidth={3} />
       </button>
 
-      {/* Card History Modal */}
+      {/* Credit Card Details Modal */}
       {viewingHistoryCard && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setViewingHistoryCard(null)} />
-           <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
-              <div className="flex justify-between items-center mb-6">
+           <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh]">
+              <div className="flex justify-between items-center mb-6 shrink-0">
                 <div className="flex items-center gap-3">
                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: viewingHistoryCard.color }}>
                       <CardIcon size={20} />
                    </div>
                    <div>
-                     <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{viewingHistoryCard.name}</h3>
-                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico de Lançamentos</p>
+                     <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">{viewingHistoryCard.name}</h3>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Visão Geral do Cartão</p>
                    </div>
                 </div>
                 <button onClick={() => setViewingHistoryCard(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
@@ -508,42 +497,33 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     .map(item => (
                       <div key={item.id} className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{item.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[9px] font-extrabold uppercase bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-500">
-                              {item.recurrence === 'monthly' ? 'Mensal' : item.recurrence === 'installments' ? `${item.installments}x` : 'Avulso'}
+                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate leading-none">{item.title}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[8px] font-black uppercase bg-white dark:bg-slate-800 px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-500">
+                              {item.recurrence === 'monthly' ? 'Mensal' : item.recurrence === 'installments' ? `${item.installments}x` : 'Única'}
                             </span>
-                            <span className="text-[9px] text-slate-400 font-medium">Início: {new Date(item.startDate).toLocaleDateString('pt-BR')}</span>
                           </div>
                         </div>
                         <div className="text-right ml-4">
-                           <p className="font-bold text-sm text-slate-900 dark:text-white">{formatCurrency(item.amount)}</p>
-                           {item.recurrence === 'installments' && item.installments && (
-                             <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Total: {formatCurrency(item.amount * item.installments)}</p>
-                           )}
+                           <p className="font-black text-sm text-slate-900 dark:text-white">{formatCurrency(item.amount)}</p>
                         </div>
                       </div>
                     ))
                 ) : (
                   <div className="text-center py-12 text-slate-400">
                     <ShoppingBag size={32} className="mx-auto mb-2 opacity-20" />
-                    <p className="text-xs font-medium">Nenhum lançamento vinculado.</p>
+                    <p className="text-xs font-medium">Nenhum gasto fixo vinculado.</p>
                   </div>
                 )}
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                  <div className="bg-slate-900 dark:bg-white p-4 rounded-2xl flex justify-between items-center shadow-xl">
-                    <span className="text-xs font-bold text-white/70 dark:text-slate-500 uppercase">Comprometido Total</span>
-                    <span className="text-xl font-extrabold text-white dark:text-slate-900">
+                    <span className="text-[10px] font-black text-white/60 dark:text-slate-500 uppercase tracking-widest">Valor Comprometido</span>
+                    <span className="text-xl font-black text-white dark:text-slate-900">
                        {formatCurrency(fixedExpenses
                          .filter(e => e.cardId === viewingHistoryCard.id)
-                         .reduce((acc, curr) => {
-                            if (curr.recurrence === 'installments' && curr.installments) {
-                               return acc + (curr.amount * curr.installments);
-                            }
-                            return acc + curr.amount;
-                         }, 0)
+                         .reduce((acc, curr) => acc + (curr.recurrence === 'installments' ? (curr.amount * (curr.installments || 1)) : curr.amount), 0)
                        )}
                     </span>
                  </div>
@@ -554,14 +534,14 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
 
       {/* Confirmation Delete Modal */}
       {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDeleteModal({ isOpen: false, item: null })} />
           <div className="relative bg-white dark:bg-slate-900 w-full max-w-xs rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95">
              <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle size={28} />
              </div>
-             <h3 className="text-center font-bold text-slate-900 dark:text-white mb-2 text-sm">Excluir Item?</h3>
-             <p className="text-center text-[11px] text-slate-500 mb-6">Esta ação removerá o item permanentemente de todos os ciclos.</p>
+             <h3 className="text-center font-bold text-slate-900 dark:text-white mb-2 text-sm">Excluir Fixa?</h3>
+             <p className="text-center text-[11px] text-slate-500 mb-6">Removerá este lançamento permanentemente de todos os meses futuros.</p>
              <div className="flex gap-3">
                 <button onClick={() => setDeleteModal({ isOpen: false, item: null })} className="flex-1 py-3 rounded-xl font-bold text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800">Cancelar</button>
                 <button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold text-[11px] text-white bg-rose-600 shadow-lg shadow-rose-500/20">Excluir</button>
@@ -570,55 +550,39 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
         </div>
       )}
 
+      {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold dark:text-white">{editingId ? 'Editar' : 'Novo'} Item Fixo</h3>
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-5 shadow-2xl animate-in slide-in-from-bottom border border-slate-200 dark:border-slate-800 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-5 shrink-0">
+              <h3 className="text-lg font-black dark:text-white leading-none">{editingId ? 'Editar' : 'Novo'} Item Fixo</h3>
               <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-4">
               <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex">
-                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>
+                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
                   <TrendingUp size={16} /> Ganho
                 </button>
-                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}>
+                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}>
                   <TrendingDown size={16} /> Gasto
                 </button>
               </div>
 
               <div className="space-y-3">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-                  <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-10 rounded-xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xl">R$</span>
+                  <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="w-full bg-slate-50 dark:bg-slate-950 text-2xl p-4 pl-12 rounded-2xl font-black focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
                 </div>
-                <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="Nome (ex: Aluguel / Salário)" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-xl font-medium focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
-                <div className="flex flex-wrap gap-2">
-                  {(type === 'expense' ? EXPENSE_CATEGORIES : ['Salário', 'Freelance', 'Bônus', 'Outros']).map(cat => (
-                    <button 
-                      key={cat} 
-                      type="button" 
-                      onClick={() => {
-                        setCategory(cat);
-                        if (cat === 'Cartão') setIsCardExpense(true);
-                        else if (type === 'income') setIsCardExpense(false);
-                      }} 
-                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors ${category === cat ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent'}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="O que é? (ex: Internet)" className="w-full bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" />
               </div>
 
-              {/* CARD SELECTION SECTION */}
               {type === 'expense' && (
-                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CardIcon size={16} className="text-purple-500" />
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">No Cartão?</span>
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">No Cartão?</span>
                     </div>
                     <button 
                       type="button"
@@ -635,28 +599,25 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                   </div>
 
                   {isCardExpense && (
-                    <div className="animate-in fade-in slide-in-from-top-2">
+                    <div className="flex flex-col gap-2 pt-1 animate-in slide-in-from-top-2">
                       {creditCards.length > 0 ? (
-                        <div className="flex flex-col gap-2 pt-2">
-                          {creditCards.map(card => (
-                            <button
-                              key={card.id}
-                              type="button"
-                              onClick={() => setSelectedCardId(card.id)}
-                              className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedCardId === card.id ? 'bg-white dark:bg-slate-800 shadow-sm' : 'bg-slate-100/50 dark:bg-slate-900/50 opacity-60 border-transparent'}`}
-                              style={{ borderColor: selectedCardId === card.id ? card.color : 'transparent' }}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.color }}></div>
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
-                              </div>
-                              {selectedCardId === card.id && <CheckCircle2 size={16} style={{ color: card.color }} />}
-                            </button>
-                          ))}
-                        </div>
+                        creditCards.map(card => (
+                          <button
+                            key={card.id}
+                            type="button"
+                            onClick={() => setSelectedCardId(card.id)}
+                            className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedCardId === card.id ? 'bg-white dark:bg-slate-800 shadow-sm border-purple-500/50' : 'bg-slate-100/50 dark:bg-slate-900/50 opacity-60 border-transparent'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.color }}></div>
+                              <span className="text-xs font-black text-slate-700 dark:text-slate-200">{card.name}</span>
+                            </div>
+                            {selectedCardId === card.id && <CheckCircle2 size={16} className="text-purple-500" />}
+                          </button>
+                        ))
                       ) : (
-                        <div className="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/20 p-2 rounded-lg text-center">
-                          Vá em Ajustes para adicionar cartões.
+                        <div className="text-[9px] text-rose-500 font-black bg-rose-50 dark:bg-rose-950/20 p-3 rounded-xl text-center">
+                          ADICIONE UM CARTÃO NOS AJUSTES
                         </div>
                       )}
                     </div>
@@ -664,41 +625,34 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                 </div>
               )}
 
-              <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
                 <div className="flex items-center gap-2">
                   <Repeat size={16} className="text-blue-500" />
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Recorrência</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recorrência</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                   <button type="button" onClick={() => setRecurrence('monthly')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'monthly' ? 'bg-white dark:bg-slate-800 border-blue-500/50 shadow-sm text-blue-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Mensal</button>
-                   <button type="button" onClick={() => setRecurrence('installments')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'installments' ? 'bg-white dark:bg-slate-800 border-amber-500/50 shadow-sm text-amber-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Parcelas</button>
-                   <button type="button" onClick={() => setRecurrence('single')} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${recurrence === 'single' ? 'bg-white dark:bg-slate-800 border-purple-500/50 shadow-sm text-purple-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>Avulsa</button>
+                   {['monthly', 'installments', 'single'].map((r) => (
+                      <button key={r} type="button" onClick={() => setRecurrence(r as RecurrenceType)} className={`py-2 rounded-xl text-[9px] font-black border transition-all ${recurrence === r ? 'bg-white dark:bg-slate-800 border-blue-500/50 shadow-sm text-blue-600' : 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-400'}`}>
+                         {r === 'monthly' ? 'MENSAL' : r === 'installments' ? 'PARCELADO' : 'AVULSO'}
+                      </button>
+                   ))}
                 </div>
                 {recurrence === 'installments' && (
                   <div className="animate-in fade-in slide-in-from-top-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Quantidade de Parcelas</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase mb-2 block tracking-widest text-center">Quantidade de Parcelas</label>
                     <input 
                       type="number" 
                       value={installments} 
                       onChange={(e) => setInstallments(e.target.value)} 
-                      placeholder="Ex: 12" 
-                      className="w-full bg-white dark:bg-slate-900 p-3 rounded-lg text-sm font-bold focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" 
+                      placeholder="12" 
+                      className="w-full bg-white dark:bg-slate-900 p-3 rounded-xl text-lg font-black text-center focus:outline-none dark:text-white border border-slate-200 dark:border-slate-800" 
                     />
-                    {/* Previsão do Valor Total Parcelado */}
-                    {amount && installments && (
-                      <div className="mt-1 px-1">
-                        <span className="text-[10px] font-bold text-slate-400">Total da Compra: </span>
-                        <span className="text-[10px] font-extrabold text-slate-900 dark:text-white">
-                          {formatCurrency(parseFloat(amount) * (parseInt(installments) || 0))}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
 
-              <button type="submit" className={`w-full py-4 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-transform ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>
-                {editingId ? 'Salvar Alterações' : 'Adicionar Item'}
+              <button type="submit" className={`w-full py-4 rounded-2xl font-black text-sm text-white shadow-xl active:scale-95 transition-all mt-2 ${type === 'income' ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-600 shadow-rose-500/30'}`}>
+                {editingId ? 'Salvar Alterações' : 'Confirmar Lançamento'}
               </button>
             </form>
           </div>
