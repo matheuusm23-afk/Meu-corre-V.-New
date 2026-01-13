@@ -400,7 +400,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                       <div className="text-[8px] font-black uppercase text-slate-500 truncate max-w-[60px]">{card.name}</div>
                     </div>
                     {available !== null && (
-                      <div className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">
+                      <div className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">
                          Livre: {formatCurrency(available)}
                       </div>
                     )}
@@ -519,7 +519,7 @@ export const FixedExpenses: React.FC<FixedExpensesProps> = ({
                     <div className="flex flex-col">
                        <span className="text-[10px] font-black text-white/60 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Total Comprometido</span>
                        {viewingHistoryCard.limit > 0 && (
-                          <span className="text-[9px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
+                          <span className="text-[11px] font-black text-emerald-500 uppercase">Disponível: {formatCurrency(Math.max(0, viewingHistoryCard.limit - (committedByCard[viewingHistoryCard.id] || 0)))}</span>
                        )}
                     </div>
                     <span className="text-xl font-black text-white dark:text-slate-900">
