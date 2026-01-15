@@ -200,15 +200,15 @@ export const Goals: React.FC<GoalsProps> = ({
   const timeBlocks = useMemo(() => {
     if (!isCurrentCycleView) return [];
     
-    const blocks: { label: string; workingDays: number; value: number; isMain: boolean; daysText: string }[] = [];
+    const blocks: { label: string; workingDays: number; value: number; isMain: boolean; daysText: string; rangeText: string }[] = [];
     const iter = new Date(today);
     iter.setHours(0,0,0,0);
     
     let currentBlockDays = 0;
     let weekIndex = 0;
+    let blockStart = new Date(iter);
 
-    // Função auxiliar para fechar bloco
-    const closeBlock = (isFirst: boolean, isTail: boolean, count: number) => {
+    const closeBlock = (isFirst: boolean, isTail: boolean, count: number, start: Date, end: Date) => {
       if (count === 0 && !isFirst) return;
       
       let label = "";
@@ -220,12 +220,28 @@ export const Goals: React.FC<GoalsProps> = ({
         else label = `${weekIndex + 1}ª Semana`;
       }
 
+      // Formatação do range: "do dia X ao dia Y"
+      // Se mudar o mês, adiciona o mês curto para clareza
+      const startFmt = start.getDate();
+      const endFmt = end.getDate();
+      const startMonth = start.getMonth();
+      const endMonth = end.getMonth();
+      
+      let rangeText = "";
+      if (startMonth === endMonth) {
+        rangeText = `do dia ${startFmt} ao dia ${endFmt}`;
+      } else {
+        const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+        rangeText = `do dia ${startFmt}/${monthFmt.format(start)} ao dia ${endFmt}/${monthFmt.format(end)}`;
+      }
+
       blocks.push({
         label,
         workingDays: count,
         value: count * dailyTargetDisplay,
         isMain: isFirst,
-        daysText: count === 1 ? '1 dia de trampo' : `${count} dias de trampo`
+        daysText: count === 1 ? '1 dia de trampo' : `${count} dias de trampo`,
+        rangeText
       });
     };
 
@@ -242,11 +258,14 @@ export const Goals: React.FC<GoalsProps> = ({
       if (dayOfWeek === 0 || iter.getTime() === new Date(endDate).setHours(0,0,0,0)) {
         const isFirstBlock = blocks.length === 0;
         const isLastDayOfCycle = iter.getTime() === new Date(endDate).setHours(0,0,0,0);
-        // Se for o último dia e não for domingo, é um bloco residual "tail"
         const isTailBlock = isLastDayOfCycle && dayOfWeek !== 0;
         
-        closeBlock(isFirstBlock, isTailBlock && !isFirstBlock, currentBlockDays);
-        currentBlockDays = 0;
+        closeBlock(isFirstBlock, isTailBlock && !isFirstBlock, currentBlockDays, blockStart, new Date(iter));
+        
+        // Prepara o início do próximo bloco
+        const nextStart = new Date(iter);
+        nextStart.setDate(nextStart.getDate() + 1);
+        blockStart = new Date(nextStart);
       }
       
       iter.setDate(iter.getDate() + 1);
@@ -414,6 +433,7 @@ export const Goals: React.FC<GoalsProps> = ({
                     </p>
                     <p className="text-[8px] text-blue-400/60 font-bold uppercase">{mainWeekBlock.daysText}</p>
                   </div>
+                  <p className="text-[8px] text-blue-500/50 font-medium italic mt-0.5">{mainWeekBlock.rangeText}</p>
                 </div>
               ) : (
                 <div className="text-blue-400 text-[10px] font-black italic">Sem meta para esta semana</div>
@@ -423,9 +443,12 @@ export const Goals: React.FC<GoalsProps> = ({
               {futureBlocks.length > 0 && (
                 <div className="pt-3 border-t border-blue-200/50 dark:border-blue-800/50 space-y-2.5">
                   {futureBlocks.map((block, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
+                    <div key={idx} className="flex items-center justify-between group">
                       <div>
-                        <p className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest leading-none mb-0.5">{block.label}</p>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <p className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest leading-none">{block.label}</p>
+                          <span className="text-[7px] text-blue-400/40 font-bold uppercase">• {block.rangeText}</span>
+                        </div>
                         <p className="text-[7px] text-blue-400/50 font-bold uppercase">{block.daysText}</p>
                       </div>
                       <div className="text-sm font-black text-blue-600/90 dark:text-blue-400/80">
