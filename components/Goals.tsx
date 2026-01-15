@@ -220,8 +220,6 @@ export const Goals: React.FC<GoalsProps> = ({
         else label = `${weekIndex + 1}ª Semana`;
       }
 
-      // Formatação do range: "do dia X ao dia Y"
-      // Se mudar o mês, adiciona o mês curto para clareza
       const startFmt = start.getDate();
       const endFmt = end.getDate();
       const startMonth = start.getMonth();
@@ -254,7 +252,6 @@ export const Goals: React.FC<GoalsProps> = ({
         currentBlockDays++;
       }
 
-      // Se for Domingo ou o último dia do ciclo, fecha o bloco
       if (dayOfWeek === 0 || iter.getTime() === new Date(endDate).setHours(0,0,0,0)) {
         const isFirstBlock = blocks.length === 0;
         const isLastDayOfCycle = iter.getTime() === new Date(endDate).setHours(0,0,0,0);
@@ -262,7 +259,6 @@ export const Goals: React.FC<GoalsProps> = ({
         
         closeBlock(isFirstBlock, isTailBlock && !isFirstBlock, currentBlockDays, blockStart, new Date(iter));
         
-        // Prepara o início do próximo bloco
         const nextStart = new Date(iter);
         nextStart.setDate(nextStart.getDate() + 1);
         blockStart = new Date(nextStart);
@@ -413,45 +409,45 @@ export const Goals: React.FC<GoalsProps> = ({
           {messageNode}
         </Card>
 
-        {/* META SEMANAL DETALHADA */}
+        {/* META SEMANAL DETALHADA - CORES AJUSTADAS PARA MELHOR VISIBILIDADE */}
         <Card 
           title="Metas do Ciclo" 
           subtitle="Projeção para os próximos dias"
-          icon={<Clock size={16} className="text-blue-500" />}
-          className="p-5 bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30"
+          icon={<Clock size={16} className="text-blue-600" />}
+          className="p-5 bg-blue-50/40 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/40 shadow-sm"
         >
            <div className="mt-1 flex flex-col gap-3">
               {/* BLOCO ATUAL (MAIOR DESTAQUE) */}
               {mainWeekBlock ? (
                 <div>
-                  <div className="text-2xl font-black text-blue-700 dark:text-blue-400 tracking-tight leading-none">
+                  <div className="text-2xl font-black text-blue-900 dark:text-blue-300 tracking-tight leading-none">
                      {formatCurrency(mainWeekBlock.value)}
                   </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-[10px] text-blue-500 font-black uppercase tracking-wider">
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-[10px] text-blue-700 dark:text-blue-400 font-black uppercase tracking-wider">
                        {mainWeekBlock.label}
                     </p>
-                    <p className="text-[8px] text-blue-400/60 font-bold uppercase">{mainWeekBlock.daysText}</p>
+                    <p className="text-[8px] text-blue-800/70 dark:text-blue-400/80 font-bold uppercase">{mainWeekBlock.daysText}</p>
                   </div>
-                  <p className="text-[8px] text-blue-500/50 font-medium italic mt-0.5">{mainWeekBlock.rangeText}</p>
+                  <p className="text-[8px] text-blue-700/80 dark:text-blue-500 font-bold italic mt-1">{mainWeekBlock.rangeText}</p>
                 </div>
               ) : (
-                <div className="text-blue-400 text-[10px] font-black italic">Sem meta para esta semana</div>
+                <div className="text-blue-600 dark:text-blue-400 text-[10px] font-black italic">Sem meta para esta semana</div>
               )}
               
-              {/* BLOCOS FUTUROS (TAMANHO REDUZIDO) */}
+              {/* BLOCOS FUTUROS (TAMANHO REDUZIDO, MAS COM MAIS CONTRASTE) */}
               {futureBlocks.length > 0 && (
-                <div className="pt-3 border-t border-blue-200/50 dark:border-blue-800/50 space-y-2.5">
+                <div className="pt-3 border-t border-blue-200 dark:border-blue-800/60 space-y-3">
                   {futureBlocks.map((block, idx) => (
                     <div key={idx} className="flex items-center justify-between group">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <p className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest leading-none">{block.label}</p>
-                          <span className="text-[7px] text-blue-400/40 font-bold uppercase">• {block.rangeText}</span>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <p className="text-[9px] font-black text-blue-800 dark:text-blue-300 uppercase tracking-widest leading-none">{block.label}</p>
+                          <span className="text-[7px] text-blue-600 dark:text-blue-500 font-black uppercase">• {block.rangeText}</span>
                         </div>
-                        <p className="text-[7px] text-blue-400/50 font-bold uppercase">{block.daysText}</p>
+                        <p className="text-[7px] text-blue-700 dark:text-blue-400 font-bold uppercase">{block.daysText}</p>
                       </div>
-                      <div className="text-sm font-black text-blue-600/90 dark:text-blue-400/80">
+                      <div className="text-sm font-black text-blue-800 dark:text-blue-300">
                          {formatCurrency(block.value)}
                       </div>
                     </div>
@@ -461,9 +457,9 @@ export const Goals: React.FC<GoalsProps> = ({
 
               {/* RODAPÉ DO CARD: SALDO TOTAL RESTANTE NO CICLO */}
               {isCurrentCycleView && (
-                <div className="pt-2 border-t border-blue-200/30 dark:border-blue-800/30 flex justify-between items-baseline">
-                  <span className="text-[8px] font-black text-blue-400 dark:text-blue-500 uppercase tracking-widest">Saldo Restante</span>
-                  <div className="text-xs font-black text-blue-600/60 dark:text-blue-400/60">
+                <div className="pt-2 border-t border-blue-300/40 dark:border-blue-800/40 flex justify-between items-baseline">
+                  <span className="text-[8px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-widest">Saldo Restante</span>
+                  <div className="text-xs font-black text-blue-800 dark:text-blue-300">
                      {formatCurrency(remainingToEarn)}
                   </div>
                 </div>
