@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
 import { Card } from './ui/Card';
-import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle, TrendingUp, TrendingDown } from './Icons';
+import { Target, Calendar as CalIcon, ChevronLeft, ChevronRight, AlertCircle, TrendingUp, TrendingDown, Clock } from './Icons';
 
 interface GoalsProps {
   goalSettings: GoalSettings;
@@ -99,6 +99,11 @@ export const Goals: React.FC<GoalsProps> = ({
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
   }, [startDate, endDate]);
 
+  const cycleDuration = useMemo(() => {
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }, [startDate, endDate]);
+
   const changePeriod = (offset: number) => {
     const newDate = new Date(viewDate);
     newDate.setMonth(newDate.getMonth() + offset);
@@ -142,7 +147,14 @@ export const Goals: React.FC<GoalsProps> = ({
     return { futureDays, isTodayWorkDay, totalInCycle };
   }, [calendarDays, goalSettings.daysOff, isCurrentCycleView, today]);
 
+  // Helper values for weekly target
+  const avgWorkDaysPerWeek = useMemo(() => {
+    if (cycleDuration === 0) return 0;
+    return (workDaysDetails.totalInCycle / cycleDuration) * 7;
+  }, [workDaysDetails.totalInCycle, cycleDuration]);
+
   let dailyTargetDisplay = 0;
+  let weeklyTargetDisplay = 0;
   let helperText = '';
   let messageNode = null;
   let comparisonNode = null;
@@ -209,6 +221,9 @@ export const Goals: React.FC<GoalsProps> = ({
     helperText = 'Ciclo encerrado';
   }
 
+  // Final weekly target calculation based on dynamic daily target
+  weeklyTargetDisplay = dailyTargetDisplay * avgWorkDaysPerWeek;
+
   const handleDayClick = (date: Date) => {
     const dateStr = getISODate(date);
     if (isCurrentCycleView && date < new Date(new Date().setHours(0,0,0,0))) return;
@@ -251,7 +266,7 @@ export const Goals: React.FC<GoalsProps> = ({
           className={`
             relative w-full aspect-square rounded-2xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all duration-200 border border-transparent
             ${isPast ? 'opacity-40 grayscale cursor-not-allowed bg-slate-100 dark:bg-slate-800/50' : ''}
-            ${isToday ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-slate-900 z-10 shadow-lg' : ''}
+            ${isToday ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-slate-950 z-10 shadow-lg' : ''}
             ${!isPast && isOff ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' : ''}
             ${!isPast && !isOff ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:scale-105 active:scale-95' : ''}
           `}
@@ -317,47 +332,67 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
       )}
 
-      <Card 
-        title={isFutureView ? "Previsão Diária" : "Meta de Hoje"} 
-        className={`p-5 ${
-           cardVariant === 'default' 
-             ? 'border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20' 
-             : cardVariant === 'success' 
-                ? 'border border-emerald-200/50 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20'
-                : 'border border-rose-200/50 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20'
-        } backdrop-blur-sm`}
-      >
-         <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
-               cardVariant === 'default'
-                ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500'
-                : cardVariant === 'success'
-                   ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500'
-                   : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
-            }`}>
-               <Target size={24} />
-            </div>
-            <div>
-               <div className={`text-2xl font-bold tracking-tight ${
-                 cardVariant === 'default' ? 'text-amber-700 dark:text-amber-400' :
-                 cardVariant === 'success' ? 'text-emerald-700 dark:text-emerald-400' :
-                 'text-rose-700 dark:text-rose-400'
-               }`}>
-                  {formatCurrency(dailyTargetDisplay)}
-               </div>
-               <div className={`text-[10px] mt-0.5 font-medium ${
-                 cardVariant === 'default' ? 'text-amber-700/70 dark:text-amber-400/70' :
-                 cardVariant === 'success' ? 'text-emerald-700/70 dark:text-emerald-400/70' :
-                 'text-rose-700/70 dark:text-rose-400/70'
-               }`}>
-                  {helperText}
-               </div>
-            </div>
-         </div>
-         
-         {comparisonNode}
-         {messageNode}
-      </Card>
+      {/* METAS DIÁRIA E SEMANAL */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Card 
+          title={isFutureView ? "Previsão Diária" : "Meta de Hoje"} 
+          className={`p-5 ${
+            cardVariant === 'default' 
+              ? 'border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20' 
+              : cardVariant === 'success' 
+                  ? 'border border-emerald-200/50 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20'
+                  : 'border border-rose-200/50 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20'
+          } backdrop-blur-sm`}
+        >
+          <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
+                cardVariant === 'default'
+                  ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500'
+                  : cardVariant === 'success'
+                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500'
+                    : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
+              }`}>
+                <Target size={24} />
+              </div>
+              <div>
+                <div className={`text-2xl font-bold tracking-tight ${
+                  cardVariant === 'default' ? 'text-amber-700 dark:text-amber-400' :
+                  cardVariant === 'success' ? 'text-emerald-700 dark:text-emerald-400' :
+                  'text-rose-700 dark:text-rose-400'
+                }`}>
+                    {formatCurrency(dailyTargetDisplay)}
+                </div>
+                <div className={`text-[10px] mt-0.5 font-medium ${
+                  cardVariant === 'default' ? 'text-amber-700/70 dark:text-amber-400/70' :
+                  cardVariant === 'success' ? 'text-emerald-700/70 dark:text-emerald-400/70' :
+                  'text-rose-700/70 dark:text-rose-400/70'
+                }`}>
+                    {helperText}
+                </div>
+              </div>
+          </div>
+          
+          {comparisonNode}
+          {messageNode}
+        </Card>
+
+        {/* META SEMANAL CARD */}
+        <Card 
+          title="Meta Semanal" 
+          subtitle="Para manter o ritmo"
+          icon={<Clock size={16} className="text-blue-500" />}
+          className="p-5 bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30"
+        >
+           <div className="mt-1">
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">
+                 {formatCurrency(weeklyTargetDisplay)}
+              </div>
+              <p className="text-[9px] text-blue-500 font-medium mt-1">
+                 Média para bater a meta em 7 dias
+              </p>
+           </div>
+        </Card>
+      </div>
 
       <Card 
         title="Folgas" 
