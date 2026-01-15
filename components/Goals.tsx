@@ -1,5 +1,3 @@
-
-// Reverted Goals component to remove dailyAdjustments and Modal logic.
 import React, { useState, useMemo } from 'react';
 import { GoalSettings, Transaction, FixedExpense } from '../types';
 import { formatCurrency, getISODate, getBillingPeriodRange, getFixedExpensesForPeriod, parseDateLocal, isSameDay } from '../utils';
@@ -21,7 +19,6 @@ export const Goals: React.FC<GoalsProps> = ({
 }) => {
   const [viewDate, setViewDate] = useState(new Date());
   
-  // Normalize today to start of day for consistent comparisons
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -31,20 +28,16 @@ export const Goals: React.FC<GoalsProps> = ({
   const startDay = goalSettings.startDayOfMonth || 1;
   const endDay = goalSettings.endDayOfMonth;
 
-  // Determine the billing period for the current view
   const { startDate, endDate } = useMemo(() => 
     getBillingPeriodRange(viewDate, startDay, endDay), 
   [viewDate, startDay, endDay]);
 
-  // Determine if we are viewing the current actual cycle
   const { startDate: currentCycleStart, endDate: currentCycleEnd } = useMemo(() => 
     getBillingPeriodRange(today, startDay, endDay), 
   [today, startDay, endDay]);
 
   const isCurrentCycleView = startDate.getTime() === currentCycleStart.getTime();
   const isFutureView = startDate > currentCycleEnd;
-
-  // --- CALCULATIONS FOR THE SELECTED PERIOD ---
 
   const relevantFixedItems = useMemo(() => 
     getFixedExpensesForPeriod(fixedExpenses, startDate, endDate),
@@ -60,7 +53,6 @@ export const Goals: React.FC<GoalsProps> = ({
       .filter(e => e.type === 'income')
       .reduce((acc, curr) => acc + curr.amount, 0);
 
-    // If income > expenses, gap is zero (user is already covered)
     return Math.max(0, totalExpenses - totalFixedIncome);
   }, [relevantFixedItems]);
 
@@ -99,18 +91,12 @@ export const Goals: React.FC<GoalsProps> = ({
     return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(midPoint);
   }, [startDate, endDate]);
 
-  const cycleDuration = useMemo(() => {
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }, [startDate, endDate]);
-
   const changePeriod = (offset: number) => {
     const newDate = new Date(viewDate);
     newDate.setMonth(newDate.getMonth() + offset);
     setViewDate(newDate);
   };
 
-  // Fix: Removed redundant code and fixed the undefined variable 'i' issue in the loop.
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     const iter = new Date(startDate);
@@ -210,35 +196,67 @@ export const Goals: React.FC<GoalsProps> = ({
     helperText = 'Ciclo encerrado';
   }
 
-  // NOVA LÓGICA DA META SEMANAL:
-  // Conta quantos dias de trabalho faltam de HOJE até DOMINGO (inclusive hoje se não for folga)
-  // Multiplica pela meta diária calculada.
-  const { workingDaysRemainingInWeek, daysUntilSundayLabel } = useMemo(() => {
-    const curr = new Date(today);
-    const dayOfWeek = curr.getDay(); // 0: Domingo, 1: Segunda...
-    const diffToSunday = (7 - dayOfWeek) % 7;
+  // Lógica Avançada de Blocos de Tempo (Semanas e Residuais)
+  const timeBlocks = useMemo(() => {
+    if (!isCurrentCycleView) return [];
     
-    const sunday = new Date(curr);
-    sunday.setDate(curr.getDate() + diffToSunday);
-    sunday.setHours(23, 59, 59, 999);
-
-    const iter = new Date(curr);
+    const blocks: { label: string; workingDays: number; value: number; isMain: boolean; daysText: string }[] = [];
+    const iter = new Date(today);
     iter.setHours(0,0,0,0);
-    let count = 0;
     
-    while (iter <= sunday) {
-      const dStr = getISODate(iter);
-      if (!goalSettings.daysOff.includes(dStr)) {
-        count++;
+    let currentBlockDays = 0;
+    let weekIndex = 0;
+
+    // Função auxiliar para fechar bloco
+    const closeBlock = (isFirst: boolean, isTail: boolean, count: number) => {
+      if (count === 0 && !isFirst) return;
+      
+      let label = "";
+      if (isFirst) label = "Esta Semana";
+      else if (isTail) label = "Finais do Ciclo";
+      else {
+        weekIndex++;
+        if (weekIndex === 1) label = "Próxima Semana";
+        else label = `${weekIndex + 1}ª Semana`;
       }
+
+      blocks.push({
+        label,
+        workingDays: count,
+        value: count * dailyTargetDisplay,
+        isMain: isFirst,
+        daysText: count === 1 ? '1 dia de trampo' : `${count} dias de trampo`
+      });
+    };
+
+    while (iter <= endDate) {
+      const dStr = getISODate(iter);
+      const dayOfWeek = iter.getDay(); // 0: Dom, 1: Seg...
+      const isOff = goalSettings.daysOff.includes(dStr);
+
+      if (!isOff) {
+        currentBlockDays++;
+      }
+
+      // Se for Domingo ou o último dia do ciclo, fecha o bloco
+      if (dayOfWeek === 0 || iter.getTime() === new Date(endDate).setHours(0,0,0,0)) {
+        const isFirstBlock = blocks.length === 0;
+        const isLastDayOfCycle = iter.getTime() === new Date(endDate).setHours(0,0,0,0);
+        // Se for o último dia e não for domingo, é um bloco residual "tail"
+        const isTailBlock = isLastDayOfCycle && dayOfWeek !== 0;
+        
+        closeBlock(isFirstBlock, isTailBlock && !isFirstBlock, currentBlockDays);
+        currentBlockDays = 0;
+      }
+      
       iter.setDate(iter.getDate() + 1);
     }
 
-    const label = count === 1 ? '1 dia de trabalho até domingo' : `${count} dias de trabalho até domingo`;
-    return { workingDaysRemainingInWeek: count, daysUntilSundayLabel: label };
-  }, [today, goalSettings.daysOff]);
+    return blocks;
+  }, [today, endDate, goalSettings.daysOff, dailyTargetDisplay, isCurrentCycleView]);
 
-  const weeklyTargetDisplay = dailyTargetDisplay * workingDaysRemainingInWeek;
+  const mainWeekBlock = timeBlocks.find(b => b.isMain);
+  const futureBlocks = timeBlocks.filter(b => !b.isMain);
 
   const handleDayClick = (date: Date) => {
     const dateStr = getISODate(date);
@@ -257,24 +275,18 @@ export const Goals: React.FC<GoalsProps> = ({
   const renderCalendarGrid = () => {
     const gridItems = [];
     const firstDayOfWeek = startDate.getDay();
-    
-    // Consistent structure for empty cells
     for (let i = 0; i < firstDayOfWeek; i++) {
        gridItems.push(<div key={`empty-${i}`} className="w-full aspect-square"></div>);
     }
-
     calendarDays.forEach((date, index) => {
       const dateStr = getISODate(date);
       const dayNum = date.getDate();
-      
       const isFirstDayOfCycle = index === 0;
       const isFirstOfMonth = dayNum === 1;
       const showMonthLabel = isFirstDayOfCycle || isFirstOfMonth;
-
       const isOff = goalSettings.daysOff.includes(dateStr);
       const isToday = date.toDateString() === today.toDateString();
       const isPast = date < new Date(new Date().setHours(0,0,0,0));
-      
       gridItems.push(
         <div 
           key={dateStr}
@@ -294,9 +306,7 @@ export const Goals: React.FC<GoalsProps> = ({
                {new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date)}
              </span>
           )}
-          
           <span>{dayNum}</span>
-          
           {isOff && !isPast && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-rose-500 rounded-full shadow-sm"></div>}
         </div>
       );
@@ -348,7 +358,6 @@ export const Goals: React.FC<GoalsProps> = ({
         </div>
       )}
 
-      {/* METAS DIÁRIA E SEMANAL */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card 
           title={isFutureView ? "Previsão Diária" : "Meta de Hoje"} 
@@ -362,11 +371,9 @@ export const Goals: React.FC<GoalsProps> = ({
         >
           <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
-                cardVariant === 'default'
-                  ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500'
-                  : cardVariant === 'success'
-                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500'
-                    : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
+                cardVariant === 'default' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500' :
+                cardVariant === 'success' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500' :
+                'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
               }`}>
                 <Target size={24} />
               </div>
@@ -378,34 +385,66 @@ export const Goals: React.FC<GoalsProps> = ({
                 }`}>
                     {formatCurrency(dailyTargetDisplay)}
                 </div>
-                <div className={`text-[10px] mt-0.5 font-medium ${
-                  cardVariant === 'default' ? 'text-amber-700/70 dark:text-amber-400/70' :
-                  cardVariant === 'success' ? 'text-emerald-700/70 dark:text-emerald-400/70' :
-                  'text-rose-700/70 dark:text-rose-400/70'
-                }`}>
+                <div className="text-[10px] mt-0.5 font-medium opacity-70">
                     {helperText}
                 </div>
               </div>
           </div>
-          
           {comparisonNode}
           {messageNode}
         </Card>
 
-        {/* META SEMANAL CARD - ATUALIZADO */}
+        {/* META SEMANAL DETALHADA */}
         <Card 
-          title="Meta da Semana" 
-          subtitle="Até o próximo domingo"
+          title="Metas do Ciclo" 
+          subtitle="Projeção para os próximos dias"
           icon={<Clock size={16} className="text-blue-500" />}
           className="p-5 bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30"
         >
-           <div className="mt-1">
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">
-                 {formatCurrency(weeklyTargetDisplay)}
-              </div>
-              <p className="text-[9px] text-blue-500 font-medium mt-1 uppercase tracking-wider">
-                 {daysUntilSundayLabel}
-              </p>
+           <div className="mt-1 flex flex-col gap-3">
+              {/* BLOCO ATUAL (MAIOR DESTAQUE) */}
+              {mainWeekBlock ? (
+                <div>
+                  <div className="text-2xl font-black text-blue-700 dark:text-blue-400 tracking-tight leading-none">
+                     {formatCurrency(mainWeekBlock.value)}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[10px] text-blue-500 font-black uppercase tracking-wider">
+                       {mainWeekBlock.label}
+                    </p>
+                    <p className="text-[8px] text-blue-400/60 font-bold uppercase">{mainWeekBlock.daysText}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-blue-400 text-[10px] font-black italic">Sem meta para esta semana</div>
+              )}
+              
+              {/* BLOCOS FUTUROS (TAMANHO REDUZIDO) */}
+              {futureBlocks.length > 0 && (
+                <div className="pt-3 border-t border-blue-200/50 dark:border-blue-800/50 space-y-2.5">
+                  {futureBlocks.map((block, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest leading-none mb-0.5">{block.label}</p>
+                        <p className="text-[7px] text-blue-400/50 font-bold uppercase">{block.daysText}</p>
+                      </div>
+                      <div className="text-sm font-black text-blue-600/90 dark:text-blue-400/80">
+                         {formatCurrency(block.value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* RODAPÉ DO CARD: SALDO TOTAL RESTANTE NO CICLO */}
+              {isCurrentCycleView && (
+                <div className="pt-2 border-t border-blue-200/30 dark:border-blue-800/30 flex justify-between items-baseline">
+                  <span className="text-[8px] font-black text-blue-400 dark:text-blue-500 uppercase tracking-widest">Saldo Restante</span>
+                  <div className="text-xs font-black text-blue-600/60 dark:text-blue-400/60">
+                     {formatCurrency(remainingToEarn)}
+                  </div>
+                </div>
+              )}
            </div>
         </Card>
       </div>
@@ -422,11 +461,9 @@ export const Goals: React.FC<GoalsProps> = ({
                <div key={i} className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{d}</div>
              ))}
           </div>
-          
           <div className="grid grid-cols-7 gap-1.5 place-items-center">
              {renderCalendarGrid()}
           </div>
-          
           <div className="mt-4 flex gap-4 text-[10px] font-medium text-slate-500 dark:text-slate-400 justify-center">
             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600"></div> Trampo</div>
             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-200 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-800"></div> Folga</div>
