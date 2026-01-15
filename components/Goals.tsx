@@ -149,28 +149,28 @@ export const Goals: React.FC<GoalsProps> = ({
        if (hitGoal) {
           cardVariant = 'success';
           messageNode = (
-            <p className="text-[10px] text-emerald-800 dark:text-emerald-200 mt-2 font-medium bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
+            <p className="text-[10px] text-emerald-950 dark:text-emerald-200 mt-2 font-black bg-emerald-100 dark:bg-emerald-900/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800">
                Parabéns vc bateu sua meta hoje e sua diária partir de amanhã ficará mais baixa 🚀
             </p>
           );
        } else {
           cardVariant = 'danger';
           messageNode = (
-            <p className="text-[10px] text-rose-800 dark:text-rose-200 mt-2 font-medium bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg">
+            <p className="text-[10px] text-rose-950 dark:text-rose-200 mt-2 font-black bg-rose-100 dark:bg-rose-900/40 p-2 rounded-lg border border-rose-200 dark:border-rose-800">
                Que pena você não bateu a meta hoje, amanhã sua meta ficará um pouco maior 📉
             </p>
           );
        }
        
        comparisonNode = (
-          <div className="grid grid-cols-2 gap-2 mt-2 p-2.5 bg-white/50 dark:bg-slate-900/50 rounded-xl text-[10px] border border-slate-200/50 dark:border-slate-700/50">
+          <div className="grid grid-cols-2 gap-2 mt-2 p-2.5 bg-white/50 dark:bg-slate-900/50 rounded-xl text-[10px] border border-slate-300 dark:border-slate-700">
              <div>
-                <span className="block text-slate-500 dark:text-slate-400">Meta de Hoje</span>
-                <span className="block font-bold text-slate-700 dark:text-slate-300">{formatCurrency(startOfDayTarget)}</span>
+                <span className="block text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tighter">Meta de Hoje</span>
+                <span className="block font-black text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(startOfDayTarget)}</span>
              </div>
              <div>
-                <span className="block text-slate-500 dark:text-slate-400">Feito Hoje</span>
-                <span className={`block font-bold ${hitGoal ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <span className="block text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tighter">Feito Hoje</span>
+                <span className={`block font-black text-xs ${hitGoal ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                    {formatCurrency(incomeToday)}
                 </span>
              </div>
@@ -196,7 +196,7 @@ export const Goals: React.FC<GoalsProps> = ({
     helperText = 'Ciclo encerrado';
   }
 
-  // Lógica Avançada de Blocos de Tempo (Semanas e Residuais)
+  // Lógica de Blocos de Tempo (Semanas e Residuais)
   const timeBlocks = useMemo(() => {
     if (!isCurrentCycleView) return [];
     
@@ -220,19 +220,20 @@ export const Goals: React.FC<GoalsProps> = ({
         else label = `${weekIndex + 1}ª Semana`;
       }
 
-      const startFmt = start.getDate();
-      const endFmt = end.getDate();
-      const startMonth = start.getMonth();
-      const endMonth = end.getMonth();
+      const startD = start.getDate();
+      const endD = end.getDate();
+      const startM = start.getMonth();
+      const endM = end.getMonth();
       
       let rangeText = "";
-      if (startMonth === endMonth) {
-        rangeText = `do dia ${startFmt} ao dia ${endFmt}`;
+      if (startM === endM) {
+        rangeText = `do dia ${startD} ao dia ${endD}`;
       } else {
         const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
-        rangeText = `do dia ${startFmt}/${monthFmt.format(start)} ao dia ${endFmt}/${monthFmt.format(end)}`;
+        rangeText = `do dia ${startD}/${monthFmt.format(start)} ao dia ${endD}/${monthFmt.format(end)}`;
       }
 
+      // O valor do bloco é o somatório das diárias ajustadas para os dias de trabalho desse bloco
       blocks.push({
         label,
         workingDays: count,
@@ -252,9 +253,11 @@ export const Goals: React.FC<GoalsProps> = ({
         currentBlockDays++;
       }
 
-      if (dayOfWeek === 0 || iter.getTime() === new Date(endDate).setHours(0,0,0,0)) {
+      const isLastDayOfCycle = iter.getTime() === new Date(endDate).setHours(0,0,0,0);
+
+      // Fecha bloco se for Domingo (final da semana) ou o último dia do ciclo de faturamento
+      if (dayOfWeek === 0 || isLastDayOfCycle) {
         const isFirstBlock = blocks.length === 0;
-        const isLastDayOfCycle = iter.getTime() === new Date(endDate).setHours(0,0,0,0);
         const isTailBlock = isLastDayOfCycle && dayOfWeek !== 0;
         
         closeBlock(isFirstBlock, isTailBlock && !isFirstBlock, currentBlockDays, blockStart, new Date(iter));
@@ -262,6 +265,7 @@ export const Goals: React.FC<GoalsProps> = ({
         const nextStart = new Date(iter);
         nextStart.setDate(nextStart.getDate() + 1);
         blockStart = new Date(nextStart);
+        currentBlockDays = 0;
       }
       
       iter.setDate(iter.getDate() + 1);
@@ -378,29 +382,29 @@ export const Goals: React.FC<GoalsProps> = ({
           title={isFutureView ? "Previsão Diária" : "Meta de Hoje"} 
           className={`p-5 ${
             cardVariant === 'default' 
-              ? 'border border-amber-200/50 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20' 
+              ? 'border border-amber-300 dark:border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30' 
               : cardVariant === 'success' 
-                  ? 'border border-emerald-200/50 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20'
-                  : 'border border-rose-200/50 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20'
+                  ? 'border border-emerald-300 dark:border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/30'
+                  : 'border border-rose-300 dark:border-rose-500/50 bg-rose-50/50 dark:bg-rose-950/30'
           } backdrop-blur-sm`}
         >
           <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
-                cardVariant === 'default' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500' :
-                cardVariant === 'success' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-500' :
-                'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-500'
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md shrink-0 ${
+                cardVariant === 'default' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' :
+                cardVariant === 'success' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
+                'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400'
               }`}>
                 <Target size={24} />
               </div>
               <div>
-                <div className={`text-2xl font-bold tracking-tight ${
-                  cardVariant === 'default' ? 'text-amber-700 dark:text-amber-400' :
-                  cardVariant === 'success' ? 'text-emerald-700 dark:text-emerald-400' :
-                  'text-rose-700 dark:text-rose-400'
+                <div className={`text-2xl font-black tracking-tighter ${
+                  cardVariant === 'default' ? 'text-amber-900 dark:text-amber-300' :
+                  cardVariant === 'success' ? 'text-emerald-900 dark:text-emerald-300' :
+                  'text-rose-900 dark:text-rose-300'
                 }`}>
                     {formatCurrency(dailyTargetDisplay)}
                 </div>
-                <div className="text-[10px] mt-0.5 font-medium opacity-70">
+                <div className="text-[10px] mt-0.5 font-black uppercase opacity-60">
                     {helperText}
                 </div>
               </div>
@@ -409,45 +413,47 @@ export const Goals: React.FC<GoalsProps> = ({
           {messageNode}
         </Card>
 
-        {/* META SEMANAL DETALHADA - CORES AJUSTADAS PARA MELHOR VISIBILIDADE */}
+        {/* METAS DO CICLO - CORES ESCURECIDAS PARA MÁXIMA VISIBILIDADE */}
         <Card 
           title="Metas do Ciclo" 
-          subtitle="Projeção para os próximos dias"
-          icon={<Clock size={16} className="text-blue-600" />}
-          className="p-5 bg-blue-50/40 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/40 shadow-sm"
+          subtitle="Valores por período para atingir o total"
+          icon={<Clock size={16} className="text-blue-800 dark:text-blue-400" />}
+          className="p-5 bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-900/50 shadow-md"
         >
-           <div className="mt-1 flex flex-col gap-3">
+           <div className="mt-1 flex flex-col gap-4">
               {/* BLOCO ATUAL (MAIOR DESTAQUE) */}
               {mainWeekBlock ? (
-                <div>
-                  <div className="text-2xl font-black text-blue-900 dark:text-blue-300 tracking-tight leading-none">
-                     {formatCurrency(mainWeekBlock.value)}
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <p className="text-[10px] text-blue-700 dark:text-blue-400 font-black uppercase tracking-wider">
+                <div className="bg-white/60 dark:bg-slate-900/40 p-3.5 rounded-2xl border border-blue-200 dark:border-blue-800/60">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] text-blue-950 dark:text-blue-200 font-black uppercase tracking-wider">
                        {mainWeekBlock.label}
                     </p>
-                    <p className="text-[8px] text-blue-800/70 dark:text-blue-400/80 font-bold uppercase">{mainWeekBlock.daysText}</p>
+                    <p className="text-[8px] text-blue-900 dark:text-blue-400 font-black uppercase">{mainWeekBlock.daysText}</p>
                   </div>
-                  <p className="text-[8px] text-blue-700/80 dark:text-blue-500 font-bold italic mt-1">{mainWeekBlock.rangeText}</p>
+                  <div className="text-3xl font-black text-blue-950 dark:text-blue-100 tracking-tighter leading-none mb-2">
+                     {formatCurrency(mainWeekBlock.value)}
+                  </div>
+                  <p className="text-[10px] text-blue-900/80 dark:text-blue-400 font-black italic">{mainWeekBlock.rangeText}</p>
                 </div>
               ) : (
-                <div className="text-blue-600 dark:text-blue-400 text-[10px] font-black italic">Sem meta para esta semana</div>
+                <div className="text-blue-800 dark:text-blue-400 text-[10px] font-black italic">Ciclo finalizado!</div>
               )}
               
-              {/* BLOCOS FUTUROS (TAMANHO REDUZIDO, MAS COM MAIS CONTRASTE) */}
+              {/* BLOCOS FUTUROS (VALORES CALCULADOS) */}
               {futureBlocks.length > 0 && (
-                <div className="pt-3 border-t border-blue-200 dark:border-blue-800/60 space-y-3">
+                <div className="pt-3 border-t border-blue-300 dark:border-blue-800/80 space-y-4">
                   {futureBlocks.map((block, idx) => (
                     <div key={idx} className="flex items-center justify-between group">
-                      <div>
+                      <div className="flex flex-col">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <p className="text-[9px] font-black text-blue-800 dark:text-blue-300 uppercase tracking-widest leading-none">{block.label}</p>
-                          <span className="text-[7px] text-blue-600 dark:text-blue-500 font-black uppercase">• {block.rangeText}</span>
+                          <p className="text-[10px] font-black text-blue-950 dark:text-blue-200 uppercase tracking-widest leading-none">{block.label}</p>
                         </div>
-                        <p className="text-[7px] text-blue-700 dark:text-blue-400 font-bold uppercase">{block.daysText}</p>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[9px] text-blue-900 dark:text-blue-400 font-black uppercase">{block.rangeText}</span>
+                           <span className="text-[8px] text-slate-500 dark:text-slate-500 font-bold">• {block.daysText}</span>
+                        </div>
                       </div>
-                      <div className="text-sm font-black text-blue-800 dark:text-blue-300">
+                      <div className="text-base font-black text-blue-950 dark:text-blue-200 tracking-tight">
                          {formatCurrency(block.value)}
                       </div>
                     </div>
@@ -455,11 +461,14 @@ export const Goals: React.FC<GoalsProps> = ({
                 </div>
               )}
 
-              {/* RODAPÉ DO CARD: SALDO TOTAL RESTANTE NO CICLO */}
+              {/* SALDO TOTAL DO CICLO */}
               {isCurrentCycleView && (
-                <div className="pt-2 border-t border-blue-300/40 dark:border-blue-800/40 flex justify-between items-baseline">
-                  <span className="text-[8px] font-black text-blue-600 dark:text-blue-500 uppercase tracking-widest">Saldo Restante</span>
-                  <div className="text-xs font-black text-blue-800 dark:text-blue-300">
+                <div className="pt-3 border-t border-blue-400/50 dark:border-blue-800 flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] font-black text-blue-900 dark:text-blue-400 uppercase tracking-widest">Saldo Restante</span>
+                    <p className="text-[8px] text-blue-800/60 dark:text-blue-500 font-bold uppercase mt-0.5">Total a fazer no mês</p>
+                  </div>
+                  <div className="text-xl font-black text-blue-950 dark:text-blue-200">
                      {formatCurrency(remainingToEarn)}
                   </div>
                 </div>
