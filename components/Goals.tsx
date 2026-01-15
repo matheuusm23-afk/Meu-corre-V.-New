@@ -110,15 +110,13 @@ export const Goals: React.FC<GoalsProps> = ({
     setViewDate(newDate);
   };
 
+  // Fix: Removed redundant code and fixed the undefined variable 'i' issue in the loop.
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     const iter = new Date(startDate);
-    const maxIterations = 45; 
-    let count = 0;
-    while (iter <= endDate && count < maxIterations) {
+    while (iter <= endDate) {
       days.push(new Date(iter));
       iter.setDate(iter.getDate() + 1);
-      count++;
     }
     return days;
   }, [startDate, endDate]);
@@ -133,28 +131,19 @@ export const Goals: React.FC<GoalsProps> = ({
       const isOff = goalSettings.daysOff.includes(dateStr);
       
       if (!isOff) {
-        if (isCurrentCycleView) {
-            const dTime = new Date(date).setHours(0,0,0,0);
-            const tTime = new Date(today).setHours(0,0,0,0);
-            
-            if (dTime > tTime) futureDays++;
-            if (dTime === tTime) isTodayWorkDay = true;
-        }
+        const dTime = new Date(date).setHours(0,0,0,0);
+        const tTime = new Date(today).setHours(0,0,0,0);
+        
+        if (dTime > tTime) futureDays++;
+        if (dTime === tTime) isTodayWorkDay = true;
         totalInCycle++; 
       }
     });
 
     return { futureDays, isTodayWorkDay, totalInCycle };
-  }, [calendarDays, goalSettings.daysOff, isCurrentCycleView, today]);
-
-  // Helper values for weekly target
-  const avgWorkDaysPerWeek = useMemo(() => {
-    if (cycleDuration === 0) return 0;
-    return (workDaysDetails.totalInCycle / cycleDuration) * 7;
-  }, [workDaysDetails.totalInCycle, cycleDuration]);
+  }, [calendarDays, goalSettings.daysOff, today]);
 
   let dailyTargetDisplay = 0;
-  let weeklyTargetDisplay = 0;
   let helperText = '';
   let messageNode = null;
   let comparisonNode = null;
@@ -221,8 +210,35 @@ export const Goals: React.FC<GoalsProps> = ({
     helperText = 'Ciclo encerrado';
   }
 
-  // Final weekly target calculation based on dynamic daily target
-  weeklyTargetDisplay = dailyTargetDisplay * avgWorkDaysPerWeek;
+  // NOVA LÓGICA DA META SEMANAL:
+  // Conta quantos dias de trabalho faltam de HOJE até DOMINGO (inclusive hoje se não for folga)
+  // Multiplica pela meta diária calculada.
+  const { workingDaysRemainingInWeek, daysUntilSundayLabel } = useMemo(() => {
+    const curr = new Date(today);
+    const dayOfWeek = curr.getDay(); // 0: Domingo, 1: Segunda...
+    const diffToSunday = (7 - dayOfWeek) % 7;
+    
+    const sunday = new Date(curr);
+    sunday.setDate(curr.getDate() + diffToSunday);
+    sunday.setHours(23, 59, 59, 999);
+
+    const iter = new Date(curr);
+    iter.setHours(0,0,0,0);
+    let count = 0;
+    
+    while (iter <= sunday) {
+      const dStr = getISODate(iter);
+      if (!goalSettings.daysOff.includes(dStr)) {
+        count++;
+      }
+      iter.setDate(iter.getDate() + 1);
+    }
+
+    const label = count === 1 ? '1 dia de trabalho até domingo' : `${count} dias de trabalho até domingo`;
+    return { workingDaysRemainingInWeek: count, daysUntilSundayLabel: label };
+  }, [today, goalSettings.daysOff]);
+
+  const weeklyTargetDisplay = dailyTargetDisplay * workingDaysRemainingInWeek;
 
   const handleDayClick = (date: Date) => {
     const dateStr = getISODate(date);
@@ -376,10 +392,10 @@ export const Goals: React.FC<GoalsProps> = ({
           {messageNode}
         </Card>
 
-        {/* META SEMANAL CARD */}
+        {/* META SEMANAL CARD - ATUALIZADO */}
         <Card 
-          title="Meta Semanal" 
-          subtitle="Para manter o ritmo"
+          title="Meta da Semana" 
+          subtitle="Até o próximo domingo"
           icon={<Clock size={16} className="text-blue-500" />}
           className="p-5 bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30"
         >
@@ -387,8 +403,8 @@ export const Goals: React.FC<GoalsProps> = ({
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">
                  {formatCurrency(weeklyTargetDisplay)}
               </div>
-              <p className="text-[9px] text-blue-500 font-medium mt-1">
-                 Média para bater a meta em 7 dias
+              <p className="text-[9px] text-blue-500 font-medium mt-1 uppercase tracking-wider">
+                 {daysUntilSundayLabel}
               </p>
            </div>
         </Card>
