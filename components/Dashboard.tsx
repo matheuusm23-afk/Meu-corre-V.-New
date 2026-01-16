@@ -242,6 +242,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return <TrendingDown size={16} />;
   };
 
+  const handleDelete = (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
+      onDeleteTransaction(id);
+    }
+  };
+
   const handleOpenForm = (t?: Transaction | null) => {
     if (t) {
       setEditingId(t.id);
@@ -324,7 +330,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <Card title="Combustível (Ciclo)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={14} className="text-amber-500" />} valueClassName="text-base" className="shadow-sm border-slate-200 dark:border-slate-800" />
         </div>
 
-        {/* --- CARD DE GANHOS DE HOJE (VALOR BRUTO SEM DESCONTAR GASTOS) --- */}
+        {/* --- CARD DE GANHOS DE HOJE --- */}
         <div className="px-1">
            <div className="p-4 rounded-3xl border flex items-center justify-between shadow-md transition-colors bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
               <div className="flex items-center gap-3">
@@ -369,7 +375,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* --- LINHA DO TEMPO DO CORRE (FINAL DA PÁGINA) --- */}
+        {/* --- LINHA DO TEMPO DO CORRE (CONTROLE TOTAL) --- */}
         <div className="space-y-4 mt-10">
            <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Histórico do Corre</h2>
@@ -432,21 +438,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                                 <div className="space-y-1.5">
                                    {day.transactions.map((t) => (
-                                     <div key={t.id} onClick={() => handleOpenForm(t)} className={`p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer shadow-sm ${t.type === 'expense' ? 'border-rose-100 dark:border-rose-950/30' : 'border-emerald-100 dark:border-emerald-950/30'}`}>
-                                        <div className="flex items-center gap-3">
+                                     <div key={t.id} className={`p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group transition-all shadow-sm ${t.type === 'expense' ? 'border-rose-100 dark:border-rose-950/30' : 'border-emerald-100 dark:border-emerald-950/30'}`}>
+                                        <div className="flex items-center gap-3 min-w-0" onClick={() => handleOpenForm(t)}>
                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'income' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'}`}>
                                               {getTransactionIcon({ description: t.description, type: t.type })}
                                            </div>
-                                           <div>
-                                              <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-none mb-1">{t.description}</p>
+                                           <div className="min-w-0">
+                                              <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-none mb-1 truncate">{t.description}</p>
                                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
                                                  {t.type === 'income' ? 'Ganho' : 'Gasto'} • {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                               </p>
                                            </div>
                                         </div>
-                                        <span className={`text-sm font-black tracking-tight ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                           {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                                        </span>
+                                        
+                                        <div className="flex items-center gap-3 shrink-0">
+                                           <span className={`text-sm font-black tracking-tight ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                              {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                                           </span>
+                                           
+                                           {/* Ações Rápidas */}
+                                           <div className="flex items-center gap-0.5">
+                                              <button 
+                                                onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
+                                                className="p-1.5 text-slate-300 hover:text-amber-500 active:scale-90 transition-all"
+                                              >
+                                                <Edit2 size={12} />
+                                              </button>
+                                              <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                                                className="p-1.5 text-slate-300 hover:text-rose-500 active:scale-90 transition-all"
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                           </div>
+                                        </div>
                                      </div>
                                    ))}
                                 </div>
@@ -510,7 +535,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <p className="text-[10px] text-slate-500">{formatDate(item.date)}</p>
                       </div>
                     </div>
-                    <span className={`font-black text-sm ${item.type === 'income' ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>{item.type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                       <span className={`font-black text-sm ${item.type === 'income' ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>{item.type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}</span>
+                       {!item.isFixed && (
+                         <div className="flex items-center gap-1">
+                            <button onClick={(e) => { e.stopPropagation(); handleOpenForm(item.originalTransaction); }} className="p-1 text-slate-300 hover:text-amber-500"><Edit2 size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
+                         </div>
+                       )}
+                    </div>
                   </div>
                 ))}
               </div>
