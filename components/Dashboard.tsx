@@ -127,7 +127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return max > 0 ? max : 100; 
   }, [chartData]);
 
-  // --- Lógica de Saldo do Dia (Hoje) ---
+  // --- Lógica de Ganhos e Gastos de Hoje ---
   const todayStats = useMemo(() => {
     const dayTransactions = transactions.filter(t => isSameDay(parseDateLocal(t.date), today));
     const income = dayTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -324,22 +324,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <Card title="Combustível (Ciclo)" value={formatCurrency(monthFuelTotal)} icon={<Fuel size={14} className="text-amber-500" />} valueClassName="text-base" className="shadow-sm border-slate-200 dark:border-slate-800" />
         </div>
 
-        {/* --- NOVO: CARD DE SALDO DIÁRIO --- */}
+        {/* --- CARD DE GANHOS DE HOJE (VALOR BRUTO SEM DESCONTAR GASTOS) --- */}
         <div className="px-1">
-           <div className={`p-4 rounded-3xl border flex items-center justify-between shadow-md transition-colors ${todayStats.balance >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800'}`}>
+           <div className="p-4 rounded-3xl border flex items-center justify-between shadow-md transition-colors bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
               <div className="flex items-center gap-3">
-                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${todayStats.balance >= 0 ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
-                    <Wallet size={20} />
+                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-emerald-500 text-white">
+                    <TrendingUp size={20} />
                  </div>
                  <div>
-                    <p className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1 ${todayStats.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Saldo de Hoje</p>
-                    <p className={`text-xl font-black leading-none ${todayStats.balance >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-rose-900 dark:text-rose-100'}`}>
-                       {formatCurrency(todayStats.balance)}
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 text-emerald-600">Ganhos de Hoje</p>
+                    <p className="text-xl font-black leading-none text-emerald-900 dark:text-emerald-100">
+                       {formatCurrency(todayStats.income)}
                     </p>
                  </div>
               </div>
               <div className="text-right">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Ganhos: <span className="text-emerald-600">{formatCurrency(todayStats.income)}</span></p>
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Entradas: <span className="text-emerald-600">{formatCurrency(todayStats.income)}</span></p>
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Gastos: <span className="text-rose-600">{formatCurrency(todayStats.expense)}</span></p>
               </div>
            </div>
