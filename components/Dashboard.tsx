@@ -212,11 +212,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ...week,
         days: Object.entries(week.days)
           .sort((a, b) => b[0].localeCompare(a[0]))
-          .map(([date, data]) => ({ 
-            date, 
-            ...data, 
-            transactions: data.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) 
-          }))
+          .map(([date, data]) => {
+            // Separa transações por tipo para exibição em blocos
+            const incomeTransactions = data.transactions.filter(t => t.type === 'income').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const expenseTransactions = data.transactions.filter(t => t.type === 'expense').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            return { 
+              date, 
+              ...data, 
+              incomeTransactions,
+              expenseTransactions
+            };
+          })
       }));
 
     if (sortedGroups.length > 0 && expandedWeeks.size === 0) {
@@ -375,7 +382,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* --- LINHA DO TEMPO DO CORRE (CONTROLE TOTAL) --- */}
+        {/* --- LINHA DO TEMPO DO CORRE (VALORES INDIVIDUAIS SEM CÁLCULO) --- */}
         <div className="space-y-4 mt-10">
            <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Histórico do Corre</h2>
@@ -421,59 +428,89 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                       {/* Lista de Dias na Semana */}
                       {isExpanded && (
-                        <div className="space-y-6 pt-2 pl-2 border-l-2 border-slate-200 dark:border-slate-800 ml-5 animate-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-8 pt-2 pl-2 border-l-2 border-slate-200 dark:border-slate-800 ml-5 animate-in slide-in-from-top-2 duration-300">
                            {week.days.map((day) => (
-                             <div key={day.date} className="space-y-2">
-                                <div className="flex items-center justify-between px-2 mb-1">
+                             <div key={day.date} className="space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 mb-1 gap-2">
                                    <div className="flex items-center gap-2">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm"></div>
+                                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400 shadow-sm"></div>
                                       <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-[0.1em]">
                                         {parseDateLocal(day.date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}
                                       </span>
                                    </div>
-                                   <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full">
-                                      Líquido: {formatCurrency(day.income - day.expense)}
-                                   </span>
+                                   {/* VALORES SEPARADOS NO CABEÇALHO DO DIA */}
+                                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                                      <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full whitespace-nowrap uppercase tracking-tighter">
+                                         Ganhos: {formatCurrency(day.income)}
+                                      </span>
+                                      <span className="text-[8px] font-black text-rose-600 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-full whitespace-nowrap uppercase tracking-tighter">
+                                         Gastos: {formatCurrency(day.expense)}
+                                      </span>
+                                   </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                   {day.transactions.map((t) => (
-                                     <div key={t.id} className={`p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group transition-all shadow-sm ${t.type === 'expense' ? 'border-rose-100 dark:border-rose-950/30' : 'border-emerald-100 dark:border-emerald-950/30'}`}>
-                                        <div className="flex items-center gap-3 min-w-0" onClick={() => handleOpenForm(t)}>
-                                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'income' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'}`}>
-                                              {getTransactionIcon({ description: t.description, type: t.type })}
-                                           </div>
-                                           <div className="min-w-0">
-                                              <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-none mb-1 truncate">{t.description}</p>
-                                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                                                 {t.type === 'income' ? 'Ganho' : 'Gasto'} • {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                              </p>
-                                           </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-3 shrink-0">
-                                           <span className={`text-sm font-black tracking-tight ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                              {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                                           </span>
-                                           
-                                           {/* Ações Rápidas */}
-                                           <div className="flex items-center gap-0.5">
-                                              <button 
-                                                onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }}
-                                                className="p-1.5 text-slate-300 hover:text-amber-500 active:scale-90 transition-all"
-                                              >
-                                                <Edit2 size={12} />
-                                              </button>
-                                              <button 
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                                                className="p-1.5 text-slate-300 hover:text-rose-500 active:scale-90 transition-all"
-                                              >
-                                                <Trash2 size={12} />
-                                              </button>
-                                           </div>
-                                        </div>
+                                <div className="space-y-4">
+                                   {/* SEÇÃO DE GANHOS DO DIA */}
+                                   {day.incomeTransactions.length > 0 && (
+                                     <div className="space-y-1.5">
+                                        <p className="text-[7px] font-black text-emerald-600/60 uppercase tracking-widest pl-2 mb-1">Ganhos</p>
+                                        {day.incomeTransactions.map((t) => (
+                                          <div key={t.id} className="p-3 bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-950/30 rounded-2xl flex items-center justify-between group transition-all shadow-sm">
+                                             <div className="flex items-center gap-3 min-w-0" onClick={() => handleOpenForm(t)}>
+                                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600">
+                                                   {getTransactionIcon({ description: t.description, type: t.type })}
+                                                </div>
+                                                <div className="min-w-0">
+                                                   <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-none mb-1 truncate">{t.description}</p>
+                                                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                                      {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                   </p>
+                                                </div>
+                                             </div>
+                                             <div className="flex items-center gap-3 shrink-0">
+                                                <span className="text-sm font-black tracking-tight text-emerald-600">
+                                                   +{formatCurrency(t.amount)}
+                                                </span>
+                                                <div className="flex items-center gap-0.5">
+                                                   <button onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }} className="p-1.5 text-slate-300 hover:text-amber-500 active:scale-90 transition-all"><Edit2 size={12} /></button>
+                                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} className="p-1.5 text-slate-300 hover:text-rose-500 active:scale-90 transition-all"><Trash2 size={12} /></button>
+                                                </div>
+                                             </div>
+                                          </div>
+                                        ))}
                                      </div>
-                                   ))}
+                                   )}
+
+                                   {/* SEÇÃO DE GASTOS DO DIA */}
+                                   {day.expenseTransactions.length > 0 && (
+                                     <div className="space-y-1.5">
+                                        <p className="text-[7px] font-black text-rose-600/60 uppercase tracking-widest pl-2 mb-1">Gastos</p>
+                                        {day.expenseTransactions.map((t) => (
+                                          <div key={t.id} className="p-3 bg-white dark:bg-slate-900 border border-rose-100 dark:border-rose-950/30 rounded-2xl flex items-center justify-between group transition-all shadow-sm">
+                                             <div className="flex items-center gap-3 min-w-0" onClick={() => handleOpenForm(t)}>
+                                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-rose-50 dark:bg-rose-950/20 text-rose-600">
+                                                   {getTransactionIcon({ description: t.description, type: t.type })}
+                                                </div>
+                                                <div className="min-w-0">
+                                                   <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-none mb-1 truncate">{t.description}</p>
+                                                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                                      {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                   </p>
+                                                </div>
+                                             </div>
+                                             <div className="flex items-center gap-3 shrink-0">
+                                                <span className="text-sm font-black tracking-tight text-rose-600">
+                                                   -{formatCurrency(t.amount)}
+                                                </span>
+                                                <div className="flex items-center gap-0.5">
+                                                   <button onClick={(e) => { e.stopPropagation(); handleOpenForm(t); }} className="p-1.5 text-slate-300 hover:text-amber-500 active:scale-90 transition-all"><Edit2 size={12} /></button>
+                                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} className="p-1.5 text-slate-300 hover:text-rose-500 active:scale-90 transition-all"><Trash2 size={12} /></button>
+                                                </div>
+                                             </div>
+                                          </div>
+                                        ))}
+                                     </div>
+                                   )}
                                 </div>
                              </div>
                            ))}
